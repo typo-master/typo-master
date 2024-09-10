@@ -1,6 +1,30 @@
 # Typo Master
 
 
+# 安装依赖
+
+https://github.com/shibing624/pycorrector/tree/master/pycorrector
+模型文件下载，参考：
+```text
+https://github.com/shibing624/pycorrector/issues/119
+```
+下载好之后放在`~/.pycorrector/datasets`文件夹下.
+
+
+
+
+语言：Python
+输入：Git仓库
+扫描内容：
+- Markdown（v0.0.1）
+- 代码文件
+  - 注释
+  - 函数名 
+  - 
+
+
+
+
 
 # 一、目标
 
