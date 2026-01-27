@@ -8,3 +8,7 @@ six
 loguru
 pyahocorasick
 kenlm
+requests
+GitPython
+openpyxl
+argparse

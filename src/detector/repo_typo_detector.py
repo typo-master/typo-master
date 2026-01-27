@@ -2,16 +2,24 @@
 # -*- coding: utf-8 -*-
 import os
 
-from pycorrector import Corrector
-from pycorrector.macbert.macbert_corrector import MacBertCorrector
-from pycorrector import ConfusionCorrector
+from textgen import BartSeq2SeqModel
+from transformers import BertTokenizerFast
+
 
 class RepoTypoDetector:
+    """
+    https://github.com/shibing624/pycorrector
+    """
 
     def __init__(self, repo_path: str):
         self.repo_path = repo_path
-        # self.corrector = Corrector()
-        self.corrector = MacBertCorrector()
+        tokenizer = BertTokenizerFast.from_pretrained('shibing624/bart4csc-base-chinese')
+        self.model = BartSeq2SeqModel(
+            encoder_type='bart',
+            encoder_decoder_type='bart',
+            encoder_decoder_name='shibing624/bart4csc-base-chinese',
+            tokenizer=tokenizer,
+            args={"max_length": 128, "eval_batch_size": 128})
 
     def scan(self):
         for root, dirs, files in os.walk(self.repo_path):
@@ -44,7 +52,7 @@ class RepoTypoDetector:
             #     }
             # ]
             # results = self.corrector.correct_batch([content])
-            results = self.corrector.macbert_correct(content)
+            results = self.model.predict(content)
             for result in results:
                 # 如果没有错误的话忽略即可
                 if len(result['errors']) == 0:
@@ -55,5 +63,5 @@ class RepoTypoDetector:
 
 
 if __name__ == '__main__':
-    detector = RepoTypoDetector('/Users/cc11001100/github/nacos')
+    detector = RepoTypoDetector('/Users/cc11001100/github/typo-master/data/web3.js')
     detector.scan()
