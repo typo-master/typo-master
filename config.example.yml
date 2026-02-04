@@ -1,0 +1,82 @@
+# TypoAgent Configuration File
+# This is a sample configuration file for TypoAgent
+
+# GitHub API Configuration
+github:
+  token: ${GITHUB_TOKEN}  # Set via environment variable GITHUB_TOKEN
+  api_url: https://api.github.com
+  timeout: 30
+  max_retries: 3
+  rate_limit_delay: 1.0
+
+# Spell Check Configuration
+spell:
+  enabled: true
+  min_confidence: 0.7
+  max_corrections_per_file: 50
+  filter_web3_terms: true
+  filter_code_identifiers: true
+
+# Pull Request Configuration
+pr:
+  auto_create: false
+  min_typos_for_pr: 1
+  min_stars_for_pr: 50
+  min_activity_score: 30
+  validate_before_create: true
+  include_detailed_description: true
+
+# System Configuration
+system:
+  log_level: INFO
+  log_file: ./logs/typo_agent.log
+  state_dir: ./state
+  cache_dir: ./cache
+  temp_dir: ./temp
+  max_concurrent_tasks: 10
+  task_timeout: 3600.0
+  enable_metrics: true
+  enable_tracing: false
+
+# Scanner Configuration
+scanner:
+  max_files_to_scan: null  # null means no limit
+  supported_extensions:
+    - .md
+    - .txt
+    - .rst
+    - .adoc
+    - .py
+    - .js
+    - .ts
+    - .jsx
+    - .tsx
+    - .sol
+    - .rs
+    - .go
+  skip_directories:
+    - .git
+    - .github
+    - node_modules
+    - __pycache__
+    - .venv
+    - venv
+    - env
+    - dist
+    - build
+    - .idea
+    - .vscode
+
+# Logging Configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file_path: ./logs/typo_agent.log
+  max_file_size: 10485760  # 10MB
+  backup_count: 5
+
+# Custom Configuration
+custom:
+  # Add your custom configuration here
+  # Example:
+  # custom_key: custom_value

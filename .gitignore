@@ -188,3 +188,18 @@ logs/
 # Local configuration
 config.local
 *.local
+
+# Configuration file
+config.yml
+!config.example.yml
+
+# Tests - keep test files tracked
+!.pytest.ini
+!.coveragerc
+
+# State and cache
+state/
+cache/
+temp/
+*.state
+*.cache

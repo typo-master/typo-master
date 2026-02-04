@@ -1,0 +1,14 @@
+[run]
+source = src
+omit = tests/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+
+[paths]
+source =
+    src/
+    /Users/cc11001100/github/typo-master/typo-master/src

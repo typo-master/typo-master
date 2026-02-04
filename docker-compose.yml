@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  typoagent:
+    build: .
+    container_name: typoagent
+    restart: unless-stopped
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./logs:/app/logs
+      - ./state:/app/state
+      - ./cache:/app/cache
+      - ./temp:/app/temp
+      - ./config.yml:/app/config.yml:ro
+    ports:
+      - "8080:8080"
+    command: python main.py
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: typoagent-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis-data:
