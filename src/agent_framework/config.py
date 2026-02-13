@@ -121,14 +121,18 @@ class ConfigManager:
         
         if not config_file:
             logger.warning("No config file specified, using defaults")
-            self.config = AppConfig()
+            # Apply environment variable overrides even with defaults
+            data = self._apply_env_overrides({})
+            self.config = self._build_config(data)
             return self.config
         
         config_path = Path(config_file)
         
         if not config_path.exists():
             logger.warning(f"Config file not found: {config_file}, using defaults")
-            self.config = AppConfig()
+            # Apply environment variable overrides even with defaults
+            data = self._apply_env_overrides({})
+            self.config = self._build_config(data)
             return self.config
         
         try:

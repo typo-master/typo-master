@@ -131,10 +131,10 @@ class PRCreatorAgent(BaseAgent):
             repo_path=task.get("repo_path"),
         )
         
-        if not branch_result.get("success"):
+        if not branch_result.success:
             return {"error": "Failed to get current branch"}
         
-        current_branch = branch_result["data"]
+        current_branch = branch_result.data
         
         # Get default branch
         default_branch_result = await self.tool_registry.invoke(
@@ -144,10 +144,10 @@ class PRCreatorAgent(BaseAgent):
             token=self.github_token,
         )
         
-        if not default_branch_result.get("success"):
+        if not default_branch_result.success:
             return {"error": "Failed to get default branch"}
         
-        default_branch = default_branch_result["data"]
+        default_branch = default_branch_result.data
         
         # Generate PR title and body
         title_result = await self.tool_registry.invoke(
@@ -160,11 +160,11 @@ class PRCreatorAgent(BaseAgent):
             changes=changes,
         )
         
-        if not title_result.get("success") or not body_result.get("success"):
+        if not title_result.success or not body_result.success:
             return {"error": "Failed to generate PR content"}
         
-        title = title_result["data"]
-        body = body_result["data"]
+        title = title_result.data
+        body = body_result.data
         
         # Validate PR
         validation_result = await self.tool_registry.invoke(
@@ -174,8 +174,8 @@ class PRCreatorAgent(BaseAgent):
             changes=changes,
         )
         
-        if not validation_result.get("success"):
-            return {"error": "PR validation failed", "errors": validation_result.get("errors", [])}
+        if not validation_result.success:
+            return {"error": "PR validation failed", "errors": validation_result.data.get("errors", []) if validation_result.data else []}
         
         # Push changes
         push_result = await self.tool_registry.invoke(
@@ -185,7 +185,7 @@ class PRCreatorAgent(BaseAgent):
             branch=current_branch,
         )
         
-        if not push_result.get("success"):
+        if not push_result.success:
             return {"error": "Failed to push changes"}
         
         # Create PR
@@ -200,17 +200,17 @@ class PRCreatorAgent(BaseAgent):
             token=self.github_token,
         )
         
-        if not pr_result.get("success"):
+        if not pr_result.success:
             return {"error": "Failed to create PR"}
         
-        pr_data = pr_result["data"]
+        pr_data = pr_result.data
         
-        logger.info(f"Created PR #{pr_data['pr_number']}: {pr_data['url']}")
+        logger.info(f"Created PR #{pr_data.get('pr_number')}: {pr_data.get('url')}")
         
         return {
             "success": True,
-            "pr_number": pr_data["pr_number"],
-            "pr_url": pr_data["url"],
+            "pr_number": pr_data.get("pr_number"),
+            "pr_url": pr_data.get("url"),
             "title": title,
         }
     
@@ -245,16 +245,16 @@ class PRCreatorAgent(BaseAgent):
         # Validate PR
         validation_result = await self.tool_registry.invoke(
             "validate_pr",
-            title=title_result["data"] if title_result.get("success") else "",
-            body=body_result["data"] if body_result.get("success") else "",
+            title=title_result.data if title_result.success else "",
+            body=body_result.data if body_result.success else "",
             changes=changes,
         )
         
         return {
-            "title": title_result["data"] if title_result.get("success") else "",
-            "body": body_result["data"] if body_result.get("success") else "",
-            "valid": validation_result.get("success", False),
-            "errors": validation_result.get("errors", []),
+            "title": title_result.data if title_result.success else "",
+            "body": body_result.data if body_result.success else "",
+            "valid": validation_result.success,
+            "errors": validation_result.data.get("errors", []) if validation_result.data else [],
         }
     
     async def _validate_pr(self, task: Dict[str, Any]) -> Dict[str, Any]:
@@ -278,4 +278,8 @@ class PRCreatorAgent(BaseAgent):
             changes=changes,
         )
         
-        return validation_result
+        return {
+            "success": validation_result.success,
+            "valid": validation_result.data.get("valid", False) if validation_result.data else False,
+            "errors": validation_result.data.get("errors", []) if validation_result.data else [],
+        }

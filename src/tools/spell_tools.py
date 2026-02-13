@@ -146,6 +146,18 @@ class SpellChecker:
         """
         errors = self.check_text(text)
         return {typo: correction for typo, correction in errors}
+    
+    def is_web3_term(self, term: str) -> bool:
+        """
+        Check if a term is a Web3 term
+        
+        Args:
+            term: Term to check
+            
+        Returns:
+            True if the term is a Web3 term
+        """
+        return term.lower() in self.web3_terms
 
 
 # Tool functions

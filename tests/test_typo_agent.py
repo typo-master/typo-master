@@ -134,7 +134,7 @@ class TestStateStore(unittest.TestCase):
         file_path = self.state_store.save(snapshot)
         self.assertTrue(os.path.exists(file_path))
         
-        loaded = self.state_store.load(file_path)
+        loaded = self.state_store.load("test_agent", "test_state")
         self.assertEqual(loaded.state_id, "test_state")
         self.assertEqual(loaded.state_data["key"], "value")
     

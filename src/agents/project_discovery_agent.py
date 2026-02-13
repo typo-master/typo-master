@@ -136,8 +136,8 @@ class ProjectDiscoveryAgent(BaseAgent):
                     token=self.github_token,
                 )
                 
-                if repos.get("success"):
-                    all_repos.extend(repos["data"])
+                if repos.success:
+                    all_repos.extend(repos.data)
                 
                 # Avoid rate limiting
                 await asyncio.sleep(2)
@@ -196,10 +196,10 @@ class ProjectDiscoveryAgent(BaseAgent):
             token=self.github_token,
         )
         
-        if not repo_result.get("success"):
+        if not repo_result.success:
             return {"error": "Failed to get repository details"}
         
-        repo_data = repo_result["data"]
+        repo_data = repo_result.data
         
         # Get recent PRs
         prs_result = await self.tool_registry.invoke(
@@ -211,7 +211,7 @@ class ProjectDiscoveryAgent(BaseAgent):
             token=self.github_token,
         )
         
-        prs = prs_result.get("data", []) if prs_result.get("success") else []
+        prs = prs_result.data if prs_result.success else []
         
         # Calculate PR acceptance rate
         recent_prs = [pr for pr in prs if pr.get("merged_at")]

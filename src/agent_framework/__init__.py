@@ -13,7 +13,7 @@ in Web3 projects with advanced capabilities including:
 
 from .base_agent import BaseAgent, AgentConfig, AgentState
 from .message import Message, MessageType, MessageHandler
-from .tool_system import Tool, ToolRegistry, tool
+from .tool_system import ToolRegistry, tool
 from .context import Context, ContextManager
 from .state import StateManager, StateStore
 from .logger import get_logger, setup_logging
@@ -51,7 +51,6 @@ __all__ = [
     "MessageType",
     "MessageHandler",
     # Tools
-    "Tool",
     "ToolRegistry",
     "tool",
     # Context & State

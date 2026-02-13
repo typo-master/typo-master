@@ -125,7 +125,11 @@ class ReportGeneratorAgent(BaseAgent):
             output_file=output_file,
         )
         
-        return result
+        return {
+            "success": result.success,
+            "output_file": output_file if result.success else None,
+            "message": result.data if result.success else result.error,
+        }
     
     async def _generate_json(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -150,7 +154,11 @@ class ReportGeneratorAgent(BaseAgent):
             indent=indent,
         )
         
-        return result
+        return {
+            "success": result.success,
+            "output_file": output_file if result.success else None,
+            "message": result.data if result.success else result.error,
+        }
     
     async def _generate_markdown(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -175,7 +183,11 @@ class ReportGeneratorAgent(BaseAgent):
             output_file=output_file,
         )
         
-        return result
+        return {
+            "success": result.success,
+            "output_file": output_file if result.success else None,
+            "message": result.data if result.success else result.error,
+        }
     
     async def _generate_html(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -200,7 +212,11 @@ class ReportGeneratorAgent(BaseAgent):
             output_file=output_file,
         )
         
-        return result
+        return {
+            "success": result.success,
+            "output_file": output_file if result.success else None,
+            "message": result.data if result.success else result.error,
+        }
     
     async def _generate_summary(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -225,7 +241,11 @@ class ReportGeneratorAgent(BaseAgent):
             format=format_type,
         )
         
-        return result
+        return {
+            "success": result.success,
+            "output_file": output_file if result.success else None,
+            "message": result.data if result.success else result.error,
+        }
     
     async def _generate_typo_fix_report(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -248,4 +268,8 @@ class ReportGeneratorAgent(BaseAgent):
             output_file=output_file,
         )
         
-        return result
+        return {
+            "success": result.success,
+            "output_file": output_file if result.success else None,
+            "message": result.data if result.success else result.error,
+        }

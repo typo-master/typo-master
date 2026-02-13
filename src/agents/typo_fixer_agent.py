@@ -124,10 +124,10 @@ class TypoFixerAgent(BaseAgent):
             file_path=file_path,
         )
         
-        if not read_result.get("success"):
+        if not read_result.success:
             return {"error": f"Failed to read file: {file_path}"}
         
-        content = read_result["data"]
+        content = read_result.data
         original_content = content
         
         # Fix each typo
@@ -152,7 +152,7 @@ class TypoFixerAgent(BaseAgent):
                 content=content,
             )
             
-            if not write_result.get("success"):
+            if not write_result.success:
                 return {"error": f"Failed to write file: {file_path}"}
             
             logger.info(f"Fixed {fixed_count} typos in {file_path}")
@@ -230,11 +230,11 @@ class TypoFixerAgent(BaseAgent):
             repo_path=repo_path,
         )
         
-        if not changes_result.get("success"):
+        if not changes_result.success:
             return {"error": "Failed to get changes"}
         
-        staged_files = changes_result["data"].get("staged", [])
-        unstaged_files = changes_result["data"].get("unstaged", [])
+        staged_files = changes_result.data.get("staged", [])
+        unstaged_files = changes_result.data.get("unstaged", [])
         
         # Stage all changed files
         all_files = staged_files + unstaged_files
@@ -261,7 +261,7 @@ class TypoFixerAgent(BaseAgent):
             message=message,
         )
         
-        if not commit_result.get("success"):
+        if not commit_result.success:
             return {"error": "Failed to commit"}
         
         logger.info(f"Committed {len(all_files)} files")

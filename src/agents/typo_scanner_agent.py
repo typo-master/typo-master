@@ -131,10 +131,10 @@ class TypoScannerAgent(BaseAgent):
             recursive=True,
         )
         
-        if not files_result.get("success"):
+        if not files_result.success:
             return {"error": "Failed to list files"}
         
-        all_files = files_result["data"]
+        all_files = files_result.data
         
         # Filter supported files
         supported_files = [
@@ -192,7 +192,7 @@ class TypoScannerAgent(BaseAgent):
             file_path=file_path,
         )
         
-        if not exists_result.get("success") or not exists_result["data"]:
+        if not exists_result.success or not exists_result.data:
             return {"error": f"File not found: {file_path}"}
         
         # Check file size
@@ -213,10 +213,10 @@ class TypoScannerAgent(BaseAgent):
             file_path=file_path,
         )
         
-        if not read_result.get("success"):
+        if not read_result.success:
             return {"error": f"Failed to read file: {file_path}"}
         
-        content = read_result["data"]
+        content = read_result.data
         
         # Check spelling
         spell_result = await self.tool_registry.invoke(
@@ -224,10 +224,10 @@ class TypoScannerAgent(BaseAgent):
             text=content,
         )
         
-        if not spell_result.get("success"):
+        if not spell_result.success:
             return {"error": f"Failed to check spelling: {file_path}"}
         
-        typos = spell_result["data"]
+        typos = spell_result.data
         
         # Filter typos based on context
         filtered_typos = await self._filter_typos(file_path, content, typos)

@@ -29,12 +29,13 @@ class CoordinatorAgent(BaseAgent):
     - Generate final reports
     """
     
-    def __init__(self, github_token: Optional[str] = None):
+    def __init__(self, github_token: Optional[str] = None, work_dir: Optional[str] = None):
         """
         Initialize coordinator agent
         
         Args:
             github_token: GitHub API token
+            work_dir: Working directory for cloning repositories
         """
         config = AgentConfig(
             name="CoordinatorAgent",
@@ -46,12 +47,20 @@ class CoordinatorAgent(BaseAgent):
         
         super().__init__(config)
         self.github_token = github_token
+        self.work_dir = work_dir or "./work"
         
         # Workflow state
         self.current_project: Optional[Dict[str, Any]] = None
         self.projects_processed: List[Dict[str, Any]] = []
         self.total_typos_fixed: int = 0
         self.total_prs_created: int = 0
+        
+        # Sub-agents (initialized in on_initialize)
+        self.discovery_agent: Optional[Any] = None
+        self.scanner_agent: Optional[Any] = None
+        self.fixer_agent: Optional[Any] = None
+        self.pr_creator_agent: Optional[Any] = None
+        self.report_generator_agent: Optional[Any] = None
         
         # Initialize state machine
         self._init_state_machine()
@@ -94,10 +103,30 @@ class CoordinatorAgent(BaseAgent):
     
     async def on_initialize(self) -> None:
         """Initialize agent and register tools"""
+        # Import and initialize sub-agents
+        from .project_discovery_agent import ProjectDiscoveryAgent
+        from .typo_scanner_agent import TypoScannerAgent
+        from .typo_fixer_agent import TypoFixerAgent
+        from .pr_creator_agent import PRCreatorAgent
+        from .report_generator_agent import ReportGeneratorAgent
+        
+        self.discovery_agent = ProjectDiscoveryAgent(github_token=self.github_token)
+        self.scanner_agent = TypoScannerAgent()
+        self.fixer_agent = TypoFixerAgent()
+        self.pr_creator_agent = PRCreatorAgent(github_token=self.github_token)
+        self.report_generator_agent = ReportGeneratorAgent()
+        
+        # Initialize all sub-agents
+        await self.discovery_agent.initialize()
+        await self.scanner_agent.initialize()
+        await self.fixer_agent.initialize()
+        await self.pr_creator_agent.initialize()
+        await self.report_generator_agent.initialize()
+        
         # Initialize state machine
         await self.state_machine.initialize()
         
-        logger.info("Coordinator agent initialized")
+        logger.info("Coordinator agent initialized with sub-agents")
     
     async def on_start(self) -> None:
         """Called when agent starts"""
@@ -344,7 +373,7 @@ class CoordinatorAgent(BaseAgent):
         limit: int,
     ) -> Dict[str, Any]:
         """
-        Discover Web3 projects
+        Discover Web3 projects using ProjectDiscoveryAgent
         
         Args:
             days: Search days
@@ -354,22 +383,51 @@ class CoordinatorAgent(BaseAgent):
         Returns:
             Discovery result
         """
-        # This would call the ProjectDiscoveryAgent
-        # For now, return mock data
-        return {
-            "success": True,
-            "projects": [
-                {
-                    "owner": "example",
-                    "name": "example-repo",
-                    "stars": 100,
-                }
-            ] * limit,
-        }
+        if not self.discovery_agent:
+            return {"error": "Discovery agent not initialized"}
+        
+        logger.info(f"Discovering Web3 projects (days={days}, stars>={min_stars}, limit={limit})")
+        
+        try:
+            result = await self.discovery_agent.process_task({
+                "type": "search_projects",
+                "days": days,
+                "min_stars": min_stars,
+                "limit": limit,
+            })
+            
+            if "error" in result:
+                logger.error(f"Project discovery failed: {result['error']}")
+                return {"success": False, "error": result["error"]}
+            
+            # Transform repos to projects format
+            repos = result.get("repos", [])
+            projects = []
+            for repo in repos:
+                projects.append({
+                    "owner": repo.get("owner", {}).get("login", ""),
+                    "name": repo.get("name", ""),
+                    "stars": repo.get("stargazers_count", 0),
+                    "full_name": repo.get("full_name", ""),
+                    "description": repo.get("description", ""),
+                    "url": repo.get("html_url", ""),
+                })
+            
+            logger.info(f"Discovered {len(projects)} Web3 projects")
+            
+            return {
+                "success": True,
+                "projects": projects,
+                "count": len(projects),
+            }
+        
+        except Exception as e:
+            logger.error(f"Error in project discovery: {e}")
+            return {"success": False, "error": str(e)}
     
     async def _scan_project(self, owner: str, repo: str) -> Dict[str, Any]:
         """
-        Scan a project for typos
+        Scan a project for typos using TypoScannerAgent
         
         Args:
             owner: Repository owner
@@ -378,17 +436,74 @@ class CoordinatorAgent(BaseAgent):
         Returns:
             Scan result
         """
-        # This would call the TypoScannerAgent
-        # For now, return mock data
-        return {
-            "success": True,
-            "total_typos": 5,
-            "files_with_typos": 2,
-        }
+        if not self.scanner_agent:
+            return {"error": "Scanner agent not initialized"}
+        
+        repo_path = f"{self.work_dir}/{owner}/{repo}"
+        repo_url = f"https://github.com/{owner}/{repo}.git"
+        
+        logger.info(f"Scanning project: {owner}/{repo}")
+        
+        try:
+            # Clone repository using git_tools
+            from ..tools.git_tools import git_clone
+            from ..tools.file_tools import file_exists
+            
+            # Check if already cloned
+            clone_needed = not await file_exists(f"{repo_path}/.git")
+            
+            if clone_needed:
+                logger.info(f"Cloning repository: {repo_url}")
+                clone_result = await git_clone(repo_url, repo_path)
+                logger.info(f"Repository cloned to: {clone_result}")
+            else:
+                logger.info(f"Using existing repository at: {repo_path}")
+            
+            # Scan the repository
+            scan_result = await self.scanner_agent.process_task({
+                "type": "scan_repo",
+                "repo_path": repo_path,
+            })
+            
+            if "error" in scan_result:
+                logger.error(f"Scan failed: {scan_result['error']}")
+                return {"success": False, "error": scan_result["error"]}
+            
+            # Transform results to expected format
+            total_typos = scan_result.get("total_typos", 0)
+            files_with_typos = scan_result.get("files_with_typos", 0)
+            results = scan_result.get("results", [])
+            
+            # Prepare detailed typo list
+            typos_list = []
+            for file_result in results:
+                file_path = file_result.get("file_path", "")
+                typos = file_result.get("typos", [])
+                for typo in typos:
+                    typos_list.append({
+                        "file": file_path,
+                        "typo": typo.get("typo", ""),
+                        "correction": typo.get("correction", ""),
+                    })
+            
+            logger.info(f"Found {total_typos} typos in {files_with_typos} files")
+            
+            return {
+                "success": True,
+                "total_typos": total_typos,
+                "files_with_typos": files_with_typos,
+                "repo_path": repo_path,
+                "typos_list": typos_list,
+                "detailed_results": results,
+            }
+        
+        except Exception as e:
+            logger.error(f"Error scanning project: {e}")
+            return {"success": False, "error": str(e)}
     
     async def _fix_typos(self, scan_result: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Fix typos in a project
+        Fix typos in a project using TypoFixerAgent
         
         Args:
             scan_result: Scan result
@@ -396,12 +511,59 @@ class CoordinatorAgent(BaseAgent):
         Returns:
             Fix result
         """
-        # This would call the TypoFixerAgent
-        # For now, return mock data
-        return {
-            "success": True,
-            "total_typos_fixed": scan_result.get("total_typos", 0),
-        }
+        if not self.fixer_agent:
+            return {"error": "Fixer agent not initialized"}
+        
+        repo_path = scan_result.get("repo_path", "")
+        detailed_results = scan_result.get("detailed_results", [])
+        
+        if not detailed_results:
+            logger.info("No typos to fix")
+            return {
+                "success": True,
+                "total_typos_fixed": 0,
+                "files_fixed": 0,
+            }
+        
+        logger.info(f"Fixing typos in {len(detailed_results)} files")
+        
+        try:
+            # Prepare files to fix
+            files_to_fix = []
+            for file_result in detailed_results:
+                file_path = file_result.get("file_path", "")
+                typos = file_result.get("typos", [])
+                if file_path and typos:
+                    files_to_fix.append({
+                        "file_path": file_path,
+                        "typos": typos,
+                    })
+            
+            # Fix typos
+            fix_result = await self.fixer_agent.process_task({
+                "type": "fix_files",
+                "files": files_to_fix,
+            })
+            
+            if "error" in fix_result:
+                logger.error(f"Fix failed: {fix_result['error']}")
+                return {"success": False, "error": fix_result["error"]}
+            
+            total_fixed = fix_result.get("total_typos_fixed", 0)
+            files_fixed = fix_result.get("files_fixed", 0)
+            
+            logger.info(f"Fixed {total_fixed} typos in {files_fixed} files")
+            
+            return {
+                "success": True,
+                "total_typos_fixed": total_fixed,
+                "files_fixed": files_fixed,
+                "fix_results": fix_result.get("results", []),
+            }
+        
+        except Exception as e:
+            logger.error(f"Error fixing typos: {e}")
+            return {"success": False, "error": str(e)}
     
     async def _create_pr(
         self,
@@ -411,7 +573,7 @@ class CoordinatorAgent(BaseAgent):
         fix_result: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        Create a pull request
+        Create a pull request using PRCreatorAgent
         
         Args:
             owner: Repository owner
@@ -422,27 +584,116 @@ class CoordinatorAgent(BaseAgent):
         Returns:
             PR creation result
         """
-        # This would call the PRCreatorAgent
-        # For now, return mock data
-        return {
-            "success": True,
-            "pr_number": 123,
-            "pr_url": f"https://github.com/{owner}/{repo}/pull/123",
-        }
+        if not self.pr_creator_agent:
+            return {"error": "PR creator agent not initialized"}
+        
+        repo_path = scan_result.get("repo_path", "")
+        fix_results = fix_result.get("fix_results", [])
+        
+        if not fix_results:
+            logger.info("No changes to create PR for")
+            return {
+                "success": False,
+                "error": "No changes to submit",
+            }
+        
+        logger.info(f"Creating PR for {owner}/{repo}")
+        
+        try:
+            # Prepare changes data for PR
+            changes = []
+            for fix in fix_results:
+                file_path = fix.get("file_path", "")
+                typos_fixed = fix.get("typos_fixed", 0)
+                if file_path and typos_fixed > 0:
+                    changes.append({
+                        "file": file_path,
+                        "typos": typos_fixed,
+                    })
+            
+            # Create PR using PRCreatorAgent
+            pr_result = await self.pr_creator_agent.process_task({
+                "type": "create_pr",
+                "owner": owner,
+                "repo": repo,
+                "repo_path": repo_path,
+                "changes": changes,
+            })
+            
+            if "error" in pr_result:
+                logger.error(f"PR creation failed: {pr_result['error']}")
+                return {"success": False, "error": pr_result["error"]}
+            
+            pr_number = pr_result.get("pr_number")
+            pr_url = pr_result.get("pr_url")
+            
+            logger.info(f"Created PR #{pr_number}: {pr_url}")
+            
+            return {
+                "success": True,
+                "pr_number": pr_number,
+                "pr_url": pr_url,
+            }
+        
+        except Exception as e:
+            logger.error(f"Error creating PR: {e}")
+            return {"success": False, "error": str(e)}
     
     async def _generate_report(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Generate a report
+        Generate a report using ReportGeneratorAgent
         
         Args:
-            data: Report data
+            data: Report data containing owner, repo, scan_result, fix_result
             
         Returns:
             Report generation result
         """
-        # This would call the ReportGeneratorAgent
-        # For now, return mock data
-        return {
-            "success": True,
-            "report_file": "report.md",
-        }
+        if not self.report_generator_agent:
+            return {"error": "Report generator agent not initialized"}
+        
+        owner = data.get("owner", "")
+        repo = data.get("repo", "")
+        scan_result = data.get("scan_result", {})
+        fix_result = data.get("fix_result", {})
+        
+        logger.info(f"Generating report for {owner}/{repo}")
+        
+        try:
+            # Prepare report data
+            report_data = {
+                "project": f"{owner}/{repo}",
+                "scan_summary": {
+                    "total_typos": scan_result.get("total_typos", 0),
+                    "files_with_typos": scan_result.get("files_with_typos", 0),
+                },
+                "fix_summary": {
+                    "total_typos_fixed": fix_result.get("total_typos_fixed", 0),
+                    "files_fixed": fix_result.get("files_fixed", 0),
+                },
+                "typos_list": scan_result.get("typos_list", []),
+            }
+            
+            # Generate typo fix report
+            report_result = await self.report_generator_agent.process_task({
+                "type": "generate_typo_fix_report",
+                "results": [report_data],
+                "output_file": f"{self.work_dir}/{owner}_{repo}_report.md",
+            })
+            
+            if "error" in report_result:
+                logger.error(f"Report generation failed: {report_result['error']}")
+                return {"success": False, "error": report_result["error"]}
+            
+            output_file = report_result.get("output_file", "")
+            
+            logger.info(f"Report generated: {output_file}")
+            
+            return {
+                "success": True,
+                "report_file": output_file,
+            }
+        
+        except Exception as e:
+            logger.error(f"Error generating report: {e}")
+            return {"success": False, "error": str(e)}
