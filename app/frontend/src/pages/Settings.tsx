@@ -441,7 +441,7 @@ export default function SettingsPage() {
           />
 
           {/* 全局总开关 */}
-          <Card className="flat-card" style={{ marginBottom: 16, backgroundColor: "#fff7e6" }}>
+          <Card className="flat-card" style={{ marginBottom: 16, backgroundColor: "transparent" }}>
             <Space direction="vertical" style={{ width: "100%" }}>
               <Space style={{ width: "100%", justifyContent: "space-between" }}>
                 <Space direction="vertical" size={0}>

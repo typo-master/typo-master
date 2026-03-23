@@ -13,6 +13,7 @@ import {
   message,
   Tooltip,
   Badge,
+  Popconfirm,
   Popover,
   Select,
   Divider,
@@ -724,8 +725,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
     setConversationId(sessionId);
   };
 
-  const deleteSession = async (sessionId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const deleteSession = async (sessionId: string) => {
     // 删除该会话的所有消息
     const sessionMessages = await getConversationMessages(sessionId);
     for (const msg of sessionMessages) {
@@ -737,6 +737,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
     if (conversationId === sessionId) {
       newConversation();
     }
+    message.success("会话已删除");
   };
 
   return (
@@ -776,7 +777,18 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
             <Button size="small" icon={<ThunderboltOutlined />} onClick={newConversation} />
           </Tooltip>
           <Tooltip title="清空">
-            <Button size="small" icon={<ClearOutlined />} onClick={clearChat} />
+            <Popconfirm
+              title="确认清空当前会话？"
+              description="清空后不可恢复。"
+              okText="清空"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => {
+                void clearChat();
+              }}
+            >
+              <Button size="small" icon={<ClearOutlined />} />
+            </Popconfirm>
           </Tooltip>
         </Space>
       }
@@ -811,9 +823,9 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                 style={{
                   padding: "6px 8px",
                   cursor: "pointer",
-                  borderRadius: 6,
+                  borderRadius: 4,
                   marginBottom: 4,
-                  background: session.id === conversationId ? "#f0fdf4" : "transparent",
+                  background: "transparent",
                   border:
                     session.id === conversationId
                       ? "1px solid #22c55e"
@@ -833,14 +845,27 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                     {session.lastMessage}
                   </Text>
                 </div>
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<DeleteOutlined />}
-                  onClick={(e) => deleteSession(session.id, e)}
-                  danger
-                  style={{ padding: "0 4px", minWidth: 24, height: 24 }}
-                />
+                <Popconfirm
+                  title="确认删除该会话？"
+                  description="删除后不可恢复。"
+                  okText="删除"
+                  cancelText="取消"
+                  okButtonProps={{ danger: true }}
+                  onConfirm={(e) => {
+                    e?.stopPropagation?.();
+                    void deleteSession(session.id);
+                  }}
+                  onCancel={(e) => e?.stopPropagation?.()}
+                >
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    onClick={(e) => e.stopPropagation()}
+                    danger
+                    style={{ padding: "0 4px", minWidth: 24, height: 24 }}
+                  />
+                </Popconfirm>
               </div>
             ))}
           </div>
@@ -861,8 +886,8 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
               flex: 1,
               overflow: "auto",
               padding: "6px",
-              background: "#f8fafc",
-              borderRadius: 8,
+              background: "transparent",
+              borderRadius: 4,
               marginBottom: 10,
             }}
           >
@@ -904,8 +929,8 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                           maxWidth: "85%",
                           minWidth: 120,
                           padding: "8px 12px",
-                          borderRadius: 10,
-                          background: msg.role === "user" ? "#f0fdf4" : "#fff",
+                          borderRadius: 4,
+                          background: "transparent",
                           border:
                             msg.role === "user"
                               ? "1px solid #bbf7d0"
@@ -955,7 +980,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                   right: 80,
                   marginBottom: 8,
                   background: "#fff",
-                  borderRadius: 8,
+                  borderRadius: 4,
                   boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
                   border: "1px solid #e5e7eb",
                   maxHeight: 280,
@@ -969,7 +994,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                     <div
                       style={{
                         padding: "6px 12px",
-                        background: "#f8fafc",
+                        background: "transparent",
                         borderBottom: "1px solid #f0f0f0",
                         fontSize: 11,
                         color: "#64748b",
@@ -988,7 +1013,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                           display: "flex",
                           alignItems: "center",
                           gap: 10,
-                          background: index === selectedIndex ? "#f0fdf4" : "transparent",
+                          background: "transparent",
                           borderBottom: "1px solid #f8fafc",
                         }}
                         onMouseEnter={() => setSelectedIndex(index)}
@@ -1020,7 +1045,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                     <div
                       style={{
                         padding: "6px 12px",
-                        background: "#f8fafc",
+                        background: "transparent",
                         borderBottom: "1px solid #f0f0f0",
                         fontSize: 11,
                         color: "#64748b",
@@ -1036,7 +1061,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                         style={{
                           padding: "8px 12px",
                           cursor: "pointer",
-                          background: index === selectedIndex ? "#f0fdf4" : "transparent",
+                          background: "transparent",
                           borderBottom: "1px solid #f8fafc",
                         }}
                         onMouseEnter={() => setSelectedIndex(index)}
@@ -1085,7 +1110,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                 <div
                   style={{
                     padding: "4px 12px",
-                    background: "#f8fafc",
+                    background: "transparent",
                     borderTop: "1px solid #f0f0f0",
                     fontSize: 10,
                     color: "#94a3b8",
@@ -1212,8 +1237,8 @@ const ExecutionSteps: React.FC<ExecutionStepsProps> = ({ steps }) => {
       style={{
         marginTop: 12,
         padding: 12,
-        background: "linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%)",
-        borderRadius: 10,
+        background: "transparent",
+        borderRadius: 4,
         border: "1px solid #bbf7d0",
       }}
     >
