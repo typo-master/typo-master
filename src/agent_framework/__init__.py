@@ -17,7 +17,6 @@ from .tool_system import ToolRegistry, tool
 from .context import Context, ContextManager
 from .state import StateManager, StateStore
 from .logger import get_logger, setup_logging
-from .state_machine import StateMachine, State, Transition, Workflow, Orchestrator
 from .error_handler import ErrorHandler, retry_on_error, with_error_handling, CircuitBreaker
 from .config import ConfigManager, get_config
 from .metrics import MetricsCollector, PerformanceMonitor, get_metrics_collector
@@ -39,8 +38,48 @@ from .testing import TestRunner, MockAgent, MockTool, TestHelper, get_test_runne
 from .learning import LearningAgent, KnowledgeAccumulator, PerformanceTracker, get_learning_agent, get_knowledge_accumulator, get_performance_tracker
 from .versioning import VersionManager, Version, get_version_manager
 from .optimization import Optimizer, Cache, get_optimizer
+from .memory import (
+    MemoryEntry,
+    MemoryQuery,
+    MemoryConfig,
+    UnifiedMemoryManager,
+    get_memory_manager,
+    BaseMemoryBackend,
+    FileBackend,
+    ChromaBackend,
+    Mem0Backend,
+)
+from .skill_system import (
+    SkillCategory,
+    SkillLevel,
+    SkillMetadata,
+    SkillResult,
+    SkillContext,
+    BaseSkill,
+    SkillRegistry,
+    skill,
+)
+from .skill_langgraph import (
+    SkillState,
+    SkillNodeConfig,
+    SkillNodeWrapper,
+    SkillGraphBuilder,
+    SkillOrchestrator,
+)
+from .skill_agent import (
+    SkillAgentConfig,
+    SkillEnabledAgent,
+)
+from .sku_system import (
+    SKUMetadata,
+    SKUState,
+    LoadedSKU,
+    SKULoader,
+    SKUManager,
+    SKUExtensionMixin,
+)
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     # Core
     "BaseAgent",
@@ -61,12 +100,6 @@ __all__ = [
     # Logging
     "get_logger",
     "setup_logging",
-    # State Machine
-    "StateMachine",
-    "State",
-    "Transition",
-    "Workflow",
-    "Orchestrator",
     # Error Handling
     "ErrorHandler",
     "retry_on_error",
@@ -152,4 +185,39 @@ __all__ = [
     "Optimizer",
     "Cache",
     "get_optimizer",
+    # Unified Memory (New)
+    "MemoryEntry",
+    "MemoryQuery",
+    "MemoryConfig",
+    "UnifiedMemoryManager",
+    "get_memory_manager",
+    "BaseMemoryBackend",
+    "FileBackend",
+    "ChromaBackend",
+    "Mem0Backend",
+    # Skills (New)
+    "SkillCategory",
+    "SkillLevel",
+    "SkillMetadata",
+    "SkillResult",
+    "SkillContext",
+    "BaseSkill",
+    "SkillRegistry",
+    "skill",
+    # Skill-LangGraph Integration (New)
+    "SkillState",
+    "SkillNodeConfig",
+    "SkillNodeWrapper",
+    "SkillGraphBuilder",
+    "SkillOrchestrator",
+    # Skill-Enabled Agent (New)
+    "SkillAgentConfig",
+    "SkillEnabledAgent",
+    # SKU Extension System (New)
+    "SKUMetadata",
+    "SKUState",
+    "LoadedSKU",
+    "SKULoader",
+    "SKUManager",
+    "SKUExtensionMixin",
 ]

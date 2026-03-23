@@ -140,11 +140,11 @@ This document describes the SOTA (State-of-the-Art) Agent architecture for Web3 
 - State backup/restore
 - State migration
 
-**State Machine**: Agent behavior orchestration
-- State definition
-- Transition rules
-- Event handling
-- State persistence
+**LangGraph Coordinator Graph**: Agent behavior orchestration
+- Typed state definition (single/batch workflows)
+- Conditional node routing
+- Async node execution
+- Workflow result aggregation
 
 ### 6. Monitoring & Observability
 

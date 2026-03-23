@@ -9,6 +9,16 @@ github:
   max_retries: 3
   rate_limit_delay: 1.0
 
+# LLM API Configuration (OpenAI compatible)
+llm:
+  enabled: false
+  base_url: ${OPENAI_BASE_URL}  # e.g. https://api.openai.com or compatible gateway
+  model: ${OPENAI_MODEL}        # e.g. gpt-5.4
+  # DO NOT hardcode real api_key here. Prefer environment variable OPENAI_API_KEY.
+  api_key: ${OPENAI_API_KEY}
+  timeout: 30
+  max_output_tokens: 300
+
 # Spell Check Configuration
 spell:
   enabled: true
@@ -74,6 +84,41 @@ logging:
   file_path: ./logs/typo_agent.log
   max_file_size: 10485760  # 10MB
   backup_count: 5
+
+# Permissions Configuration
+permissions:
+  global_remote_enabled: false  # 总开关：关闭时所有远程/高风险操作被拒绝
+
+  git_clone: false
+  git_fetch: false
+  git_pull: false
+  git_push: false
+  git_checkout: true
+  git_create_branch: true
+  git_add: true
+  git_commit: true
+
+  github_read: true
+  pr_create: false
+  pr_update: false
+  pr_comment: false
+  pr_merge: false
+  pr_close: false
+  issue_create: false
+  issue_comment: false
+  issue_close: false
+
+  fs_read: true
+  fs_write: false
+  fs_delete: false
+
+  shell_run: false
+  run_tests: false
+  install_deps: false
+
+  web_fetch: false
+  api_call: false
+  llm_request: true
 
 # Custom Configuration
 custom:

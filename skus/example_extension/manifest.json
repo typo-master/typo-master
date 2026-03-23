@@ -1,0 +1,34 @@
+{
+    "name": "example_extension",
+    "version": "1.0.0",
+    "description": "示例 SKU 扩展包，展示如何为 Agent 添加自定义能力",
+    "author": "TypoAgent Team",
+    "category": "custom",
+    "tags": ["example", "demo", "template"],
+    "required_skills": [],
+    "required_tools": [],
+    "required_packages": [],
+    "entry_point": "sku.py",
+    "skill_module": "skills",
+    "tool_module": "tools",
+    "config_schema": {
+        "greeting": {
+            "type": "string",
+            "description": "问候语",
+            "default": "Hello"
+        },
+        "enable_logging": {
+            "type": "boolean",
+            "description": "是否启用日志",
+            "default": true
+        }
+    },
+    "default_config": {
+        "greeting": "Hello from Example Extension!",
+        "enable_logging": true
+    },
+    "homepage": "https://github.com/example/typo-agent-skus",
+    "repository": "https://github.com/example/typo-agent-skus.git",
+    "created_at": "2026-03-19",
+    "updated_at": "2026-03-19"
+}

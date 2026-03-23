@@ -21,6 +21,7 @@ from .tool_system import ToolRegistry
 from .context import ContextManager
 from .state import StateManager
 from .logger import get_logger
+from .memory import UnifiedMemoryManager, get_memory_manager
 
 logger = get_logger(__name__)
 
@@ -58,6 +59,10 @@ class AgentConfig:
     enable_caching: bool = True
     log_level: str = "INFO"
     custom_config: Dict[str, Any] = field(default_factory=dict)
+    # Memory configuration
+    enable_memory: bool = True
+    memory_backend: str = "chroma"  # "mem0", "chroma", "file", "hybrid"
+    memory_categories: List[str] = field(default_factory=lambda: ["conversation", "knowledge", "workflow", "experience"])
 
 
 @dataclass
@@ -104,6 +109,10 @@ class BaseAgent(ABC):
         self.tool_registry = ToolRegistry()
         self.context_manager = ContextManager()
         self.state_manager = StateManager(self.agent_id, enable_persistence=config.enable_persistence)
+        self.memory_manager = get_memory_manager(self.agent_id)  # 统一记忆管理器
+
+        # Conversation history (for LLM context)
+        self.conversation_history: List[Dict[str, str]] = []
         
         # Message handlers
         self.message_handlers: Dict[MessageType, List[Callable]] = {}
@@ -449,22 +458,42 @@ class BaseAgent(ABC):
     
     async def _execute_task(self, task: Any) -> Any:
         """
-        Execute a task with timeout and error handling
-        
+        Execute a task with timeout, error handling, and memory recording
+
         Args:
             task: Task to execute
-            
+
         Returns:
             Task result
         """
+        task_type = task.get("type", "unknown") if isinstance(task, dict) else "unknown"
+        start_time = time.time()
+        success = False
+        result = None
+
         try:
             result = await asyncio.wait_for(
                 self.process_task(task),
                 timeout=self.config.timeout
             )
+            success = True
             return result
         except asyncio.TimeoutError:
+            success = False
             raise TimeoutError(f"Task execution timed out after {self.config.timeout}s")
+        finally:
+            # Record experience to memory
+            execution_time = time.time() - start_time
+            if self.config.enable_memory:
+                try:
+                    await self.memory_manager.remember_experience(
+                        task_type=task_type,
+                        input_data={"task": task},
+                        result={"result": result, "execution_time": execution_time},
+                        success=success
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to record experience: {e}")
     
     async def _wait_for_tasks(self) -> None:
         """Wait for all tasks to complete"""
@@ -526,7 +555,7 @@ class BaseAgent(ABC):
     def register_handler(self, message_type: MessageType, handler: Callable) -> None:
         """
         Register a message handler
-        
+
         Args:
             message_type: Type of message to handle
             handler: Handler function
@@ -535,3 +564,84 @@ class BaseAgent(ABC):
             self.message_handlers[message_type] = []
         self.message_handlers[message_type].append(handler)
         logger.debug(f"Registered handler for {message_type}")
+
+    # ==================== Memory Convenience Methods ====================
+
+    async def remember(self, content: str, category: str = "general", importance: float = 1.0,
+                      metadata: Optional[Dict] = None, level: str = "chroma") -> str:
+        """
+        Store information in memory
+
+        Args:
+            content: Content to remember
+            category: Memory category (conversation, knowledge, workflow, experience)
+            importance: Importance score (0-1)
+            metadata: Additional metadata
+            level: Storage level (working, chroma, mem0, file, all)
+
+        Returns:
+            Memory ID
+        """
+        if not self.config.enable_memory:
+            return ""
+        return await self.memory_manager.remember(
+            content=content,
+            category=category,
+            importance=importance,
+            metadata=metadata,
+            source=self.config.name,
+            level=level
+        )
+
+    async def recall(self, query: str, category: Optional[str] = None, limit: int = 10,
+                    level: str = "chroma") -> List[Any]:
+        """
+        Retrieve information from memory
+
+        Args:
+            query: Search query
+            category: Optional category filter
+            limit: Maximum results
+            level: Memory level to search
+
+        Returns:
+            List of memory entries
+        """
+        if not self.config.enable_memory:
+            return []
+        return await self.memory_manager.recall(
+            query=query,
+            category=category,
+            limit=limit,
+            level=level
+        )
+
+    async def add_to_conversation(self, role: str, content: str, conversation_id: str = "") -> None:
+        """Add a message to conversation history"""
+        self.conversation_history.append({"role": role, "content": content})
+        # Keep only last 20 messages to prevent context overflow
+        if len(self.conversation_history) > 20:
+            self.conversation_history = self.conversation_history[-20:]
+
+        # Also store in persistent memory
+        if self.config.enable_memory:
+            await self.memory_manager.remember_conversation(role, content, conversation_id)
+
+    def get_conversation_context(self, max_messages: int = 10) -> str:
+        """Get recent conversation as formatted string"""
+        recent = self.conversation_history[-max_messages:]
+        return "\n".join([f"{m['role']}: {m['content']}" for m in recent])
+
+    async def build_llm_context(self, query: str = "", max_tokens: int = 4000) -> str:
+        """Build context for LLM from memory and conversation"""
+        if not self.config.enable_memory:
+            return self.get_conversation_context()
+
+        return await self.memory_manager.build_context(query, max_tokens)
+
+    async def get_similar_experiences(self, task_type: str, limit: int = 5) -> List[Any]:
+        """Get similar past experiences"""
+        if not self.config.enable_memory:
+            return []
+        return await self.memory_manager.get_similar_experiences(task_type, limit)
+

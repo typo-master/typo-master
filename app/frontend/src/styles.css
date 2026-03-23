@@ -1,0 +1,815 @@
+:root {
+  --bg-main: #f0fdf4;
+  --bg-surface: #ffffff;
+  --line: #bbf7d0;
+  --text-main: #1a1a2e;
+  --text-sub: #5a6c7d;
+  --accent: #22c55e;
+  --accent-secondary: #16a34a;
+  --success: #52c41a;
+  --warning: #f59e0b;
+  --error: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  color: var(--text-main);
+  background: #f0fdf4;
+}
+
+.page-layout {
+  min-height: 100vh;
+  background: transparent;
+}
+
+/* 主布局样式 */
+.main-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  height: 64px;
+  padding: 0 24px;
+  background: #22c55e;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2);
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 200px;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-title {
+  margin: 0 !important;
+  color: #fff !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.brand-subtitle {
+  color: rgba(255,255,255,0.8);
+  font-size: 11px;
+}
+
+.main-menu {
+  background: transparent !important;
+  border-bottom: none !important;
+}
+
+.main-menu .ant-menu-item {
+  color: rgba(255,255,255,0.85) !important;
+  font-size: 14px;
+  height: 64px;
+  line-height: 64px;
+  padding: 0 20px !important;
+  margin: 0 !important;
+  border-bottom: none !important;
+}
+
+.main-menu .ant-menu-item:hover {
+  color: #fff !important;
+  background: rgba(255,255,255,0.1) !important;
+}
+
+.main-menu .ant-menu-item-selected {
+  color: #fff !important;
+  background: rgba(255,255,255,0.15) !important;
+  font-weight: 600;
+}
+
+.main-menu .ant-menu-item-selected::after {
+  display: none !important;
+}
+
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.main-content {
+  padding: 24px;
+  min-height: calc(100vh - 64px - 48px);
+  background: #f0fdf4;
+}
+
+.main-content:has(.workspace-page .ai-chat-card) {
+  padding: 16px;
+}
+
+.main-footer {
+  text-align: center;
+  padding: 16px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+}
+
+/* 页面容器 */
+.home-page,
+.workspace-page,
+.settings-page {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.workspace-page:has(.workspace-tabs .ant-tabs-tabpane-active:has(.ai-chat-card)) {
+  max-width: none;
+  padding: 0;
+}
+
+.welcome-section {
+  text-align: center;
+  padding: 24px 0 32px;
+  margin-bottom: 8px;
+}
+
+/* Settings 页面样式 */
+.settings-page .ant-tabs-card > .ant-tabs-nav {
+  margin-bottom: 16px;
+}
+
+.settings-page .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
+  background: #f0fdf4;
+  border-color: var(--line);
+}
+
+.settings-page .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
+  background: #fff;
+  border-color: #22c55e;
+  color: #22c55e;
+}
+
+/* 首页样式 */
+.hero-section {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  padding: 60px 24px;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.hero-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.hero-title {
+  font-size: 48px !important;
+  font-weight: 700 !important;
+  margin-bottom: 16px !important;
+  color: #166534 !important;
+}
+
+.hero-subtitle {
+  font-size: 18px !important;
+  color: #5a6c7d;
+  margin-bottom: 32px !important;
+}
+
+.hero-actions {
+  margin-bottom: 32px;
+}
+
+.hero-status {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+/* 统计数据区域 */
+.stats-section {
+  padding: 40px 24px;
+  background: #fff;
+}
+
+.stats-section .stat-card {
+  text-align: center;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* 功能特性区域 */
+.features-section {
+  padding: 60px 24px;
+  background: #f0fdf4;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.section-header h2 {
+  color: #166534;
+  margin-bottom: 8px !important;
+}
+
+.feature-card {
+  text-align: center;
+  padding: 32px 24px;
+  border: 1px solid var(--line);
+  transition: all 0.3s;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+}
+
+.feature-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+/* 工作流程区域 */
+.workflow-section {
+  padding: 60px 24px;
+  background: #fff;
+}
+
+.workflow-card {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.workflow-diagram {
+  text-align: center;
+  padding: 24px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+/* 语言支持区域 */
+.languages-section {
+  padding: 60px 24px;
+  background: #f0fdf4;
+}
+
+.languages-card {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.language-item {
+  text-align: center;
+  padding: 16px;
+  transition: all 0.3s;
+}
+
+.language-item:hover {
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+/* 技术特点区域 */
+.tech-section {
+  padding: 60px 24px;
+  background: #fff;
+}
+
+.tech-card {
+  border: 1px solid var(--line);
+  padding: 24px;
+}
+
+/* 使用场景区域 */
+.scenarios-section {
+  padding: 60px 24px;
+  background: #f0fdf4;
+}
+
+.scenario-card {
+  border: 1px solid var(--line);
+  padding: 24px;
+  transition: all 0.3s;
+}
+
+.scenario-card:hover {
+  box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+}
+
+.scenario-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+/* CTA 区域 */
+.cta-section {
+  padding: 60px 24px;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+}
+
+.cta-card {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+  background: rgba(255,255,255,0.95);
+  border: none;
+  padding: 48px;
+}
+
+.cta-card h2 {
+  color: #166534 !important;
+}
+
+/* Header 样式 - 扁平化绿色 */
+.page-header {
+  height: auto;
+  line-height: 1.4;
+  padding: 16px 24px;
+  background: #22c55e;
+  border-bottom: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.15);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-title {
+  display: flex;
+  flex-direction: column;
+}
+
+.page-title {
+  margin: 0 !important;
+  color: #fff !important;
+  font-size: 20px !important;
+}
+
+.page-subtitle {
+  color: rgba(255,255,255,0.9);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.header-stats {
+  display: flex;
+  align-items: center;
+}
+
+.header-stats .ant-statistic-title {
+  color: rgba(255,255,255,0.8) !important;
+  font-size: 12px !important;
+}
+
+.header-stats .ant-statistic-content {
+  color: #fff !important;
+  font-weight: bold;
+}
+
+/* 内容区域 */
+.page-content {
+  padding: 20px;
+}
+
+/* 卡片样式 - 扁平化 */
+.flat-card {
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  background: var(--bg-surface);
+  transition: box-shadow 0.2s;
+}
+
+.flat-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.flat-card > .ant-card-head {
+  border-bottom: 1px solid var(--line);
+  background: #f0fdf4;
+  border-radius: 8px 8px 0 0;
+}
+
+.flat-card > .ant-card-head-title {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+/* 对话卡片 */
+.chat-card {
+  height: calc(100vh - 180px);
+}
+
+.chat-card .ant-card-body {
+  height: calc(100% - 56px);
+  padding: 16px;
+}
+
+/* 聊天容器 */
+.chat-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  max-height: calc(100vh - 400px);
+  min-height: 200px;
+}
+
+.chat-container .ant-timeline {
+  padding: 8px 0;
+}
+
+.chat-container .ant-timeline-item {
+  padding-bottom: 16px;
+}
+
+/* 聊天气泡 - 扁平化 */
+.chat-bubble {
+  width: 100%;
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  border: 1px solid var(--line);
+  transition: all 0.2s;
+}
+
+.chat-bubble:hover {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+.chat-bubble.user {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.chat-bubble.assistant {
+  border-color: #bbf7d0;
+  background: #ffffff;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+/* 输入区域 */
+.chat-input-area {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.chat-input-area .ant-input {
+  border-radius: 6px;
+  border-color: var(--line);
+  resize: none;
+}
+
+.chat-input-area .ant-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.1);
+}
+
+/* 统计卡片 - 扁平化绿色 */
+.stat-card {
+  background: #f0fdf4;
+  border: 1px solid var(--line);
+  text-align: center;
+  border-radius: 6px;
+}
+
+.stat-card .ant-statistic-title {
+  color: var(--text-sub);
+  font-size: 12px;
+}
+
+.stat-card .ant-statistic-content {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 节点标签 - 扁平化绿色 */
+.node-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.node-tag {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.node-tag:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(34, 197, 94, 0.15);
+}
+
+/* 功能徽章 */
+.feature-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feature-badges .ant-tag {
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+/* 状态显示 */
+.status-display {
+  text-align: center;
+}
+
+/* 结果区域 */
+.result-card {
+  margin-top: 12px;
+}
+
+.result-box {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f8fafc;
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #4a5568;
+  max-height: 300px;
+}
+
+/* 按钮样式 - 扁平化绿色 */
+.ant-btn-primary {
+  background: #22c55e;
+  border: none;
+  box-shadow: none;
+}
+
+.ant-btn-primary:hover {
+  background: #16a34a;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+}
+
+/* Switch 样式 - 扁平化 */
+.ant-switch-checked {
+  background: #22c55e;
+}
+
+/* 进度条 - 扁平化绿色 */
+.ant-progress-bg {
+  background: #22c55e !important;
+}
+
+/* 空状态 */
+.ant-empty-description {
+  color: var(--text-sub);
+}
+
+/* 响应式调整 */
+@media (max-width: 992px) {
+  .page-header {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .header-stats {
+    display: none;
+  }
+
+  .page-content {
+    padding: 12px;
+  }
+
+  .chat-container {
+    max-height: 300px;
+  }
+
+  .chat-card {
+    height: auto;
+  }
+
+  .node-tags {
+    gap: 6px;
+  }
+
+  .node-tag {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+}
+
+/* 滚动条美化 - 绿色 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #bbf7d0;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #86efac;
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chat-bubble {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* 图标动画 */
+.anticon {
+  transition: transform 0.2s;
+}
+
+.ant-btn:hover .anticon,
+.ant-tag:hover .anticon {
+  transform: scale(1.1);
+}
+
+/* Alert 样式 - 扁平化 */
+.ant-alert-success {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.ant-alert-error {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+/* 工作台 Tab 样式 */
+.workspace-tabs {
+  margin-top: 0;
+}
+
+.workspace-tabs > .ant-tabs-nav {
+  margin-bottom: 12px;
+}
+
+.workspace-tabs > .ant-tabs-nav .ant-tabs-tab {
+  background: #f0fdf4;
+  border-color: var(--line);
+  border-radius: 6px 6px 0 0;
+  padding: 6px 14px;
+}
+
+.workspace-tabs > .ant-tabs-nav .ant-tabs-tab-active {
+  background: #fff;
+  border-color: #22c55e;
+  border-bottom-color: #fff;
+}
+
+.workspace-tabs > .ant-tabs-nav .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.workspace-tabs > .ant-tabs-content {
+  background: #fff;
+  border-radius: 0 8px 8px 8px;
+  min-height: 500px;
+}
+
+.workspace-tabs > .ant-tabs-content > .ant-tabs-tabpane {
+  padding: 16px;
+}
+
+.workspace-tabs > .ant-tabs-content > .ant-tabs-tabpane-active:has(.ai-chat-card) {
+  padding: 0;
+}
+
+/* Skill 列表样式 */
+.skill-list .ant-card {
+  margin-bottom: 16px;
+}
+
+.skill-list .ant-card-head {
+  background: #f0fdf4;
+  border-bottom: 1px solid var(--line);
+}
+
+.skill-list .ant-list-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.skill-list .ant-list-item:last-child {
+  border-bottom: none;
+}
+
+/* 触发器管理样式 */
+.trigger-manager .ant-card-head {
+  background: #f0fdf4;
+  border-bottom: 1px solid var(--line);
+}
+
+.trigger-manager .ant-list-item {
+  padding: 16px;
+  transition: background 0.2s;
+  border-radius: 6px;
+}
+
+.trigger-manager .ant-list-item:hover {
+  background: #f9fafb;
+}
+
+/* AI Chat 卡片样式优化 */
+.ai-chat-card {
+  border: 1px solid var(--line);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-chat-card .ant-card-head {
+  background: #f0fdf4;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.ai-chat-card .ant-card-body {
+  padding: 12px 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 自动补全菜单动画 */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.autocomplete-menu {
+  animation: slideUp 0.15s ease-out;
+}
+
+/* 自动补全项悬停效果 */
+.autocomplete-item {
+  transition: background-color 0.15s ease;
+}
+
+.autocomplete-item:hover {
+  background-color: #f0fdf4;
+}
+
+.autocomplete-item.selected {
+  background-color: #f0fdf4;
+}
+
+/* 代码高亮样式 */
+.autocomplete-code {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  background: #f8fafc;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #475569;
+}
+

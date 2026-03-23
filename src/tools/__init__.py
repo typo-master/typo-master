@@ -77,7 +77,6 @@ __all__ = [
     "get_pr_details",
     "merge_pull_request",
     "add_pr_comment",
-    "get_pr_files",
     # GitHub Repo Clone tools
     "clone_github_repo",
     "update_github_repo",

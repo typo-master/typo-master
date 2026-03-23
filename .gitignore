@@ -199,7 +199,20 @@ config.yml
 
 # State and cache
 state/
+agent_states/
+work/
 cache/
 temp/
 *.state
 *.cache
+
+# Product app frontend
+app/frontend/node_modules/
+app/frontend/dist/
+app/frontend/.vite/
+
+# Local PM2 runtime
+.pm2/
+
+# Agent memory (runtime data)
+agent_memory/

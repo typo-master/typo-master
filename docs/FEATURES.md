@@ -192,11 +192,11 @@ This document describes all features available in the Web3 Typo Hunter Agent Sys
 - **Error Categories**: Categorize and track errors
 - **Error Recovery**: Graceful error handling
 
-### State Machine
-- **State Definitions**: Define agent states
-- **Transitions**: Define state transitions
-- **Workflows**: Complex workflow orchestration
-- **Orchestrator**: Workflow execution engine
+### LangGraph Orchestration
+- **StateGraph**: Typed workflow state definitions
+- **Conditional Routing**: Route nodes by runtime state
+- **Async Nodes**: Run scan/fix/pr/report nodes asynchronously
+- **Single Coordinator Path**: One LangGraph-based CoordinatorAgent implementation
 
 ### Logging
 - **Structured Logging**: JSON and colored console output

@@ -114,10 +114,10 @@ class QualityEvaluatorAgent(BaseAgent):
             file_path=file_path,
         )
         
-        if not read_result.get("success"):
+        if not read_result.success:
             return {"error": "Failed to read file"}
-        
-        content = read_result["data"]
+
+        content = read_result.data
         
         # Evaluate each correction
         evaluated_typos = []
@@ -185,10 +185,10 @@ class QualityEvaluatorAgent(BaseAgent):
             file_path=file_path,
         )
         
-        if not read_result.get("success"):
+        if not read_result.success:
             return {"error": "Failed to read file"}
-        
-        content = read_result["data"]
+
+        content = read_result.data
         
         typo_info = {"typo": typo, "correction": correction}
         evaluation = await self._evaluate_single_correction(
@@ -272,7 +272,7 @@ class QualityEvaluatorAgent(BaseAgent):
             word=correction,
         )
         
-        if web3_check.get("success") and web3_check["data"]:
+        if web3_check.success and web3_check.data:
             return {
                 "passed": False,
                 "reason": "Correction is a Web3 term",
@@ -284,7 +284,7 @@ class QualityEvaluatorAgent(BaseAgent):
             word=typo,
         )
         
-        if typo_web3_check.get("success") and typo_web3_check["data"]:
+        if typo_web3_check.success and typo_web3_check.data:
             return {
                 "passed": False,
                 "reason": "Typo is a Web3 term",

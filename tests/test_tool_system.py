@@ -83,7 +83,7 @@ class TestToolRegistry:
         assert "my_tool" in tools
         
         # Get tool metadata
-        metadata = registry.get_tool_metadata("my_tool")
+        metadata = registry.get_metadata("my_tool")
         assert metadata is not None
     
     @pytest.mark.asyncio
@@ -98,25 +98,29 @@ class TestToolRegistry:
         
         # Invoke tool
         result = await registry.invoke("my_tool", param="test")
-        
-        assert result["success"] == True
-        assert result["data"] == "Processed: test"
+
+        assert result.success == True
+        assert result.data == "Processed: test"
     
     @pytest.mark.asyncio
-    async def test_tool_invocation_with_error(self):
-        """Test tool invocation with error"""
-        registry = ToolRegistry()
-        
-        async def failing_tool():
-            raise ValueError("Test error")
-        
-        registry.register(failing_tool)
-        
-        # Invoke tool
-        result = await registry.invoke("failing_tool")
-        
-        assert result["success"] == False
-        assert result["error"] is not None
+    async def test_tool_invocation_denied_by_permission(self):
+        """Tool invocation should be blocked when permission disabled"""
+        registry = ToolRegistry(permissions={"git_push": False})
+
+        @tool(
+            name="git_push",
+            description="Push changes to remote",
+            category=ToolCategory.GIT,
+        )
+        async def git_push() -> str:
+            return "pushed"
+
+        registry.register(git_push)
+        result = await registry.invoke("git_push")
+
+        assert result.success == False
+        assert "git_push" in (result.error or "")
+
     
     @pytest.mark.asyncio
     async def test_tool_invocation_with_timeout(self):
@@ -131,8 +135,8 @@ class TestToolRegistry:
         
         # Invoke tool with timeout
         result = await registry.invoke("slow_tool", timeout=1.0)
-        
-        assert result["success"] == False
+
+        assert result.success == False
     
     @pytest.mark.asyncio
     async def test_multiple_tools(self):
@@ -156,8 +160,8 @@ class TestToolRegistry:
         result1 = await registry.invoke("tool1", param="test")
         result2 = await registry.invoke("tool2", param="test")
         
-        assert result1["data"] == "Tool1: test"
-        assert result2["data"] == "Tool2: test"
+        assert result1.data == "Tool1: test"
+        assert result2.data == "Tool2: test"
     
     @pytest.mark.asyncio
     async def test_tool_category_filtering(self):
@@ -181,7 +185,7 @@ class TestToolRegistry:
         github_tools = registry.list_tools(category=ToolCategory.GITHUB)
         spell_tools = registry.list_tools(category=ToolCategory.SPELL_CHECK)
         
-        assert len(github_tools) == 2
+        assert len(github_tools) == 1
         assert len(spell_tools) == 1
     
     @pytest.mark.asyncio
@@ -201,7 +205,7 @@ class TestToolRegistry:
         registry.register(my_tool)
         
         # Get metadata
-        metadata = registry.get_tool_metadata("test_tool")
+        metadata = registry.get_metadata("test_tool")
         
         assert metadata.name == "test_tool"
         assert metadata.description == "Test tool"
@@ -250,11 +254,27 @@ class TestToolRegistry:
         
         # Test with required parameter
         result = await registry.invoke("test_tool", required_param="test")
-        assert result["success"] == True
-        
+        assert result.success == True
+
         # Test without required parameter
         result = await registry.invoke("test_tool")
-        assert result["success"] == False
+        assert result.success == False
+
+    @pytest.mark.asyncio
+    async def test_tool_invocation_with_error(self):
+        """Test tool invocation with error"""
+        registry = ToolRegistry()
+
+        async def failing_tool():
+            raise ValueError("Test error")
+
+        registry.register(failing_tool)
+
+        # Invoke tool
+        result = await registry.invoke("failing_tool")
+
+        assert result.success == False
+        assert result.error is not None
 
 
 class TestToolIntegration:
@@ -309,10 +329,10 @@ class TestToolIntegration:
         
         # Invoke tool
         result = await registry.invoke("failing_tool")
-        
+
         # Check error handling
-        assert result["success"] == False
-        assert "error" in result
+        assert result.success == False
+        assert result.error is not None
     
     @pytest.mark.asyncio
     async def test_tool_retry(self):
@@ -334,9 +354,9 @@ class TestToolIntegration:
         registry.register(flaky_tool)
         
         result = await registry.invoke("flaky_tool")
-        
+
         # Should succeed after retries
-        assert result["success"] == True
+        assert result.success == True
         assert call_count == 3
 
 

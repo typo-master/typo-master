@@ -76,12 +76,24 @@ class PRConfig:
 
 
 @dataclass
+class LLMConfig:
+    """LLM API configuration"""
+    enabled: bool = False
+    base_url: str = "https://api.openai.com"
+    api_key: Optional[str] = None
+    model: str = "gpt-5.4"
+    timeout: float = 30.0
+    max_output_tokens: int = 300
+
+
+@dataclass
 class AppConfig:
     """Application configuration"""
     system: SystemConfig = field(default_factory=SystemConfig)
     github: GitHubConfig = field(default_factory=GitHubConfig)
     spell: SpellConfig = field(default_factory=SpellConfig)
     pr: PRConfig = field(default_factory=PRConfig)
+    llm: LLMConfig = field(default_factory=LLMConfig)
     custom: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -273,7 +285,15 @@ class ConfigManager:
         if not 0 <= self.config.spell.min_confidence <= 1:
             logger.error("spell.min_confidence must be between 0 and 1")
             return False
-        
+
+        # Validate llm config
+        if self.config.llm.timeout <= 0:
+            logger.error("llm.timeout must be > 0")
+            return False
+        if self.config.llm.max_output_tokens < 1:
+            logger.error("llm.max_output_tokens must be >= 1")
+            return False
+
         return True
     
     def watch(self, callback: callable) -> None:
@@ -306,6 +326,46 @@ class ConfigManager:
             if 'system' not in data:
                 data['system'] = {}
             data['system']['log_level'] = os.environ['LOG_LEVEL']
+
+        # LLM/OpenAI-compatible settings
+        if 'OPENAI_API_KEY' in os.environ:
+            if 'llm' not in data:
+                data['llm'] = {}
+            data['llm']['api_key'] = os.environ['OPENAI_API_KEY']
+            data['llm']['enabled'] = True
+
+        if 'OPENAI_BASE_URL' in os.environ:
+            if 'llm' not in data:
+                data['llm'] = {}
+            data['llm']['base_url'] = os.environ['OPENAI_BASE_URL']
+
+        if 'OPENAI_MODEL' in os.environ:
+            if 'llm' not in data:
+                data['llm'] = {}
+            data['llm']['model'] = os.environ['OPENAI_MODEL']
+
+        if 'OPENAI_TIMEOUT' in os.environ:
+            if 'llm' not in data:
+                data['llm'] = {}
+            try:
+                data['llm']['timeout'] = float(os.environ['OPENAI_TIMEOUT'])
+            except ValueError:
+                logger.warning("Invalid OPENAI_TIMEOUT, ignoring")
+
+        if 'OPENAI_MAX_OUTPUT_TOKENS' in os.environ:
+            if 'llm' not in data:
+                data['llm'] = {}
+            try:
+                data['llm']['max_output_tokens'] = int(os.environ['OPENAI_MAX_OUTPUT_TOKENS'])
+            except ValueError:
+                logger.warning("Invalid OPENAI_MAX_OUTPUT_TOKENS, ignoring")
+
+        if 'LLM_ENABLED' in os.environ:
+            if 'llm' not in data:
+                data['llm'] = {}
+            data['llm']['enabled'] = os.environ['LLM_ENABLED'].strip().lower() in (
+                '1', 'true', 'yes', 'on'
+            )
         
         return data
     
@@ -324,6 +384,9 @@ class ConfigManager:
         system_config = SystemConfig(**system_data)
         
         github_data = data.get('github', {})
+        # Backward compatibility with older config key.
+        if 'api_url' in github_data and 'base_url' not in github_data:
+            github_data['base_url'] = github_data.pop('api_url')
         github_config = GitHubConfig(**github_data)
         
         spell_data = data.get('spell', {})
@@ -331,14 +394,18 @@ class ConfigManager:
         
         pr_data = data.get('pr', {})
         pr_config = PRConfig(**pr_data)
-        
+
+        llm_data = data.get('llm', {})
+        llm_config = LLMConfig(**llm_data)
+
         custom_data = data.get('custom', {})
-        
+
         return AppConfig(
             system=system_config,
             github=github_config,
             spell=spell_config,
             pr=pr_config,
+            llm=llm_config,
             custom=custom_data,
         )
 

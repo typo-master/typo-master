@@ -13,6 +13,12 @@ from enum import Enum
 import json
 
 from .logger import get_logger
+from .permissions import (
+    DEFAULT_PERMISSIONS,
+    normalize_permissions,
+    resolve_permission_for_tool,
+    get_current_permissions,
+)
 
 logger = get_logger(__name__)
 
@@ -133,14 +139,23 @@ def tool(
 class ToolRegistry:
     """
     Central registry for tools
-    
+
     Manages tool registration, discovery, and invocation.
     """
-    
-    def __init__(self):
+
+    def __init__(self, permissions: Optional[Dict[str, bool]] = None):
         self.tools: Dict[str, Callable] = {}
         self.metadata: Dict[str, ToolMetadata] = {}
         self.categories: Dict[ToolCategory, List[str]] = {}
+        self.permissions_override = normalize_permissions(permissions) if permissions is not None else None
+
+    def set_permissions(self, permissions: Optional[Dict[str, bool]]) -> None:
+        self.permissions_override = normalize_permissions(permissions) if permissions is not None else None
+
+    def refresh_permissions(self) -> None:
+        if self.permissions_override is None:
+            return
+        self.permissions_override = normalize_permissions(get_current_permissions())
     
     def register(self, func: Callable) -> str:
         """
@@ -292,6 +307,17 @@ class ToolRegistry:
                     error=f"Missing required parameter: {param.name}"
                 )
         
+        permission_key = resolve_permission_for_tool(name)
+        if permission_key:
+            permissions = self.permissions_override
+            if permissions is None:
+                permissions = get_current_permissions()
+            if not permissions.get(permission_key, DEFAULT_PERMISSIONS.get(permission_key, False)):
+                return ToolResult(
+                    success=False,
+                    error=f"当前未启用【{permission_key}】权限，已拒绝执行。请在权限设置中开启该项。",
+                )
+
         try:
             # Invoke tool
             result = tool_func(**kwargs)

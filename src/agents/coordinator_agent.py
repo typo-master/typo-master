@@ -1,393 +1,580 @@
 """
-Coordinator Agent - Orchestrates the typo hunting workflow
+Coordinator Agent - LangGraph-based workflow orchestrator.
 
-This agent is responsible for coordinating all other agents and managing
-the overall workflow of discovering projects, scanning for typos, fixing
-them, and creating pull requests.
+This coordinator is the single orchestration implementation and uses LangGraph
+to drive typo hunting workflows across discovery, scanning, quality validation,
+fixing, PR decision, PR creation, and report generation.
+
+Features:
+- LangGraph Checkpoint persistence for workflow state
+- Unified memory integration for cross-workflow learning
+- Conversation history for context-aware decisions
 """
 
-import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TypedDict
 from datetime import datetime
 
-from ..agent_framework.base_agent import BaseAgent, AgentConfig
-from ..agent_framework.state_machine import StateMachine, State, Transition
+from langgraph.graph import END, START, StateGraph
+
+from ..agent_framework.base_agent import AgentConfig, BaseAgent
 from ..agent_framework.logger import get_logger
+from ..agent_framework.unified_memory import UnifiedMemoryManager
+from ..agent_framework.llm_client import OpenAICompatibleResponsesClient
 
 logger = get_logger(__name__)
 
 
+class SingleProjectWorkflowState(TypedDict, total=False):
+    owner: str
+    repo: str
+    create_pr: bool
+    project_info: Dict[str, Any]
+    scan_result: Dict[str, Any]
+    quality_result: Dict[str, Any]
+    fix_result: Dict[str, Any]
+    pr_decision: Dict[str, Any]
+    pr_result: Dict[str, Any]
+    report_result: Dict[str, Any]
+    error: str
+    result: Dict[str, Any]
+
+
+class BatchWorkflowState(TypedDict, total=False):
+    days: int
+    min_stars: int
+    limit: int
+    create_pr: bool
+    discovery_result: Dict[str, Any]
+    projects: List[Dict[str, Any]]
+    project_results: List[Dict[str, Any]]
+    error: str
+    result: Dict[str, Any]
+
+
 class CoordinatorAgent(BaseAgent):
     """
-    Coordinator agent that orchestrates the typo hunting workflow
-    
-    Responsibilities:
-    - Coordinate between agents
-    - Manage workflow state
-    - Handle errors and retries
-    - Track progress
-    - Generate final reports
+    Coordinator agent that orchestrates typo hunting with LangGraph.
+
+    Features:
+    - Multi-layer memory (working, chroma, file)
+    - Workflow checkpoint persistence
+    - Cross-project learning
     """
-    
-    def __init__(self, github_token: Optional[str] = None, work_dir: Optional[str] = None):
-        """
-        Initialize coordinator agent
-        
-        Args:
-            github_token: GitHub API token
-            work_dir: Working directory for cloning repositories
-        """
+
+    def __init__(self, github_token: Optional[str] = None, work_dir: Optional[str] = None, llm_client: Optional[OpenAICompatibleResponsesClient] = None):
         config = AgentConfig(
             name="CoordinatorAgent",
-            version="1.0.0",
-            description="Orchestrates the typo hunting workflow",
+            version="1.2.0",
+            description="LangGraph orchestrator with unified memory for typo hunting workflows",
             max_retries=3,
-            timeout=3600.0,  # 1 hour timeout
+            timeout=3600.0,
+            enable_memory=True,
+            memory_backend="hybrid",
         )
-        
         super().__init__(config)
+
         self.github_token = github_token
         self.work_dir = work_dir or "./work"
-        
-        # Workflow state
-        self.current_project: Optional[Dict[str, Any]] = None
-        self.projects_processed: List[Dict[str, Any]] = []
-        self.total_typos_fixed: int = 0
-        self.total_prs_created: int = 0
-        
+        self.llm_client = llm_client
+
         # Sub-agents (initialized in on_initialize)
         self.discovery_agent: Optional[Any] = None
         self.scanner_agent: Optional[Any] = None
+        self.quality_evaluator_agent: Optional[Any] = None
         self.fixer_agent: Optional[Any] = None
+        self.decision_agent: Optional[Any] = None
         self.pr_creator_agent: Optional[Any] = None
         self.report_generator_agent: Optional[Any] = None
-        
-        # Initialize state machine
-        self._init_state_machine()
-    
-    def _init_state_machine(self) -> None:
-        """Initialize the workflow state machine"""
-        self.state_machine = StateMachine("idle")
-        
-        # Define states
-        self.state_machine.add_state(State("idle"))
-        self.state_machine.add_state(State("discovering"))
-        self.state_machine.add_state(State("scanning"))
-        self.state_machine.add_state(State("fixing"))
-        self.state_machine.add_state(State("creating_pr"))
-        self.state_machine.add_state(State("reporting"))
-        self.state_machine.add_state(State("completed"))
-        
-        # Define transitions
-        self.state_machine.add_transition(
-            Transition("idle", "discovering", "start_workflow")
-        )
-        self.state_machine.add_transition(
-            Transition("discovering", "scanning", "projects_found")
-        )
-        self.state_machine.add_transition(
-            Transition("scanning", "fixing", "typos_found")
-        )
-        self.state_machine.add_transition(
-            Transition("fixing", "creating_pr", "fixes_applied")
-        )
-        self.state_machine.add_transition(
-            Transition("creating_pr", "reporting", "pr_created")
-        )
-        self.state_machine.add_transition(
-            Transition("reporting", "completed", "report_generated")
-        )
-        self.state_machine.add_transition(
-            Transition("creating_pr", "completed", "skip_pr")
-        )
-    
+
+        # Compiled LangGraph workflows
+        self.single_project_graph = None
+        self.batch_projects_graph = None
+
+        # Workflow execution history
+        self.workflow_history: List[Dict[str, Any]] = []
+
     async def on_initialize(self) -> None:
-        """Initialize agent and register tools"""
-        # Import and initialize sub-agents
-        from .project_discovery_agent import ProjectDiscoveryAgent
-        from .typo_scanner_agent import TypoScannerAgent
-        from .typo_fixer_agent import TypoFixerAgent
+        """Initialize sub-agents and compile LangGraph workflows."""
+        from .decision_agent import DecisionAgent
         from .pr_creator_agent import PRCreatorAgent
+        from .project_discovery_agent import ProjectDiscoveryAgent
+        from .quality_evaluator_agent import QualityEvaluatorAgent
         from .report_generator_agent import ReportGeneratorAgent
-        
+        from .typo_fixer_agent import TypoFixerAgent
+        from .typo_scanner_agent import TypoScannerAgent
+
         self.discovery_agent = ProjectDiscoveryAgent(github_token=self.github_token)
         self.scanner_agent = TypoScannerAgent()
+        self.quality_evaluator_agent = QualityEvaluatorAgent()
         self.fixer_agent = TypoFixerAgent()
+        self.decision_agent = DecisionAgent(llm_client=self.llm_client)
         self.pr_creator_agent = PRCreatorAgent(github_token=self.github_token)
         self.report_generator_agent = ReportGeneratorAgent()
-        
-        # Initialize all sub-agents
+
         await self.discovery_agent.initialize()
         await self.scanner_agent.initialize()
+        await self.quality_evaluator_agent.initialize()
         await self.fixer_agent.initialize()
+        await self.decision_agent.initialize()
         await self.pr_creator_agent.initialize()
         await self.report_generator_agent.initialize()
-        
-        # Initialize state machine
-        await self.state_machine.initialize()
-        
-        logger.info("Coordinator agent initialized with sub-agents")
-    
+
+        # Build graphs with checkpoint support
+        self.single_project_graph = self._build_single_project_graph()
+        self.batch_projects_graph = self._build_batch_projects_graph()
+
+        # Load past workflow history from memory
+        await self._load_workflow_history()
+
+        logger.info("Coordinator agent initialized with memory support")
+
+    async def _load_workflow_history(self) -> None:
+        """Load past workflow executions from memory"""
+        try:
+            experiences = await self.memory_manager.get_similar_experiences("workflow", limit=20)
+            for exp in experiences:
+                if exp.metadata and "result" in exp.metadata:
+                    self.workflow_history.append(exp.metadata)
+            logger.info(f"Loaded {len(self.workflow_history)} past workflows from memory")
+        except Exception as e:
+            logger.warning(f"Failed to load workflow history: {e}")
+
     async def on_start(self) -> None:
-        """Called when agent starts"""
         logger.info("Coordinator agent started")
+
     async def on_stop(self) -> None:
-        """Called when agent stops"""
+        # Gracefully stop child agents that were initialized directly by coordinator.
+        await self._stop_sub_agent(self.discovery_agent)
+        await self._stop_sub_agent(self.scanner_agent)
+        await self._stop_sub_agent(self.quality_evaluator_agent)
+        await self._stop_sub_agent(self.fixer_agent)
+        await self._stop_sub_agent(self.decision_agent)
+        await self._stop_sub_agent(self.pr_creator_agent)
+        await self._stop_sub_agent(self.report_generator_agent)
         logger.info("Coordinator agent stopped")
-    
+
     async def on_pause(self) -> None:
-        """Called when agent is paused"""
         logger.info("Coordinator agent paused")
-    
+
     async def on_resume(self) -> None:
-        """Called when agent resumes"""
         logger.info("Coordinator agent resumed")
-    
+
     async def process_task(self, task: Any) -> Any:
         """
-        Process a workflow task
-        
-        Args:
-            task: Task to process
-            
-        Returns:
-            Task result
+        Process workflow tasks.
         """
         task_type = task.get("type")
-        
         if task_type == "run_workflow":
             return await self._run_workflow(task)
-        elif task_type == "process_project":
+        if task_type == "process_project":
             return await self._process_project(task)
-        elif task_type == "get_status":
+        if task_type == "get_status":
             return await self.get_status()
-        else:
-            logger.warning(f"Unknown task type: {task_type}")
-            return {"error": f"Unknown task type: {task_type}"}
-    
-    async def _run_workflow(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        if task_type == "get_capabilities":
+            return await self.get_capabilities()
+        logger.warning(f"Unknown task type: {task_type}")
+        return {"success": False, "error": f"Unknown task type: {task_type}"}
+
+    async def get_capabilities(self) -> Dict[str, Any]:
         """
-        Run the complete workflow
-        
-        Args:
-            task: Task parameters
-            
-        Returns:
-            Workflow results
+        Return coordinator capabilities and readiness signals.
         """
-        workflow_type = task.get("workflow", "single_project")
-        
-        logger.info(f"Starting workflow: {workflow_type}")
-        
-        # Trigger workflow start
-        await self.state_machine.trigger_event("start_workflow")
-        
-        if workflow_type == "single_project":
-            return await self._run_single_project_workflow(task)
-        elif workflow_type == "batch_projects":
-            return await self._run_batch_projects_workflow(task)
-        else:
-            return {"error": f"Unknown workflow type: {workflow_type}"}
-    
-    async def _run_single_project_workflow(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Run workflow for a single project
-        
-        Args:
-            task: Task parameters
-            
-        Returns:
-            Workflow results
-        """
-        owner = task.get("owner")
-        repo = task.get("repo")
-        create_pr = task.get("create_pr", True)
-        
-        logger.info(f"Processing single project: {owner}/{repo}")
-        
-        # Discover project
-        await self.state_machine.trigger_event("projects_found")
-        
-        # Scan for typos
-        scan_result = await self._scan_project(owner, repo)
-        
-        if scan_result.get("total_typos", 0) == 0:
-            logger.info(f"No typos found in {owner}/{repo}")
-            return {
-                "success": True,
-                "typos_found": 0,
-                "message": "No typos found",
-            }
-        
-        await self.state_machine.trigger_event("typos_found")
-        
-        # Fix typos
-        fix_result = await self._fix_typos(scan_result)
-        
-        if not fix_result.get("success"):
-            return {"error": "Failed to fix typos"}
-        
-        await self.state_machine.trigger_event("fixes_applied")
-        
-        # Create PR if requested
-        if create_pr:
-            pr_result = await self._create_pr(owner, repo, scan_result, fix_result)
-            
-            if pr_result.get("success"):
-                self.total_prs_created += 1
-                await self.state_machine.trigger_event("pr_created")
-            else:
-                logger.warning(f"Failed to create PR: {pr_result.get('error')}")
-                await self.state_machine.trigger_event("skip_pr")
-        else:
-            await self.state_machine.trigger_event("skip_pr")
-        
-        # Generate report
-        report_result = await self._generate_report({
-            "owner": owner,
-            "repo": repo,
-            "scan_result": scan_result,
-            "fix_result": fix_result,
-        })
-        
-        await self.state_machine.trigger_event("report_generated")
-        
+        llm_enabled = False
+        llm_model = None
+        if self.decision_agent and getattr(self.decision_agent, "llm_client", None):
+            llm_enabled = bool(getattr(self.decision_agent, "llm_enabled", False))
+            llm_model = self.decision_agent.llm_client.config.model if llm_enabled else None
+
         return {
             "success": True,
-            "typos_found": scan_result.get("total_typos", 0),
-            "typos_fixed": fix_result.get("total_typos_fixed", 0),
-            "pr_created": create_pr and pr_result.get("success", False),
+            "framework": "LangGraph",
+            "workflows": {
+                "single_project": True,
+                "batch_projects": True,
+            },
+            "pipeline_nodes": [
+                "scan_project",
+                "evaluate_quality",
+                "fix_typos",
+                "decide_pr",
+                "create_pull_request",
+                "generate_report",
+            ],
+            "features": {
+                "project_discovery": True,
+                "typo_scan": True,
+                "quality_evaluation": True,
+                "typo_fix": True,
+                "pr_decision": True,
+                "pr_creation": True,
+                "report_generation": True,
+                "llm_decision_support": llm_enabled,
+            },
+            "llm": {
+                "enabled": llm_enabled,
+                "model": llm_model,
+            },
+            "limitations": [
+                "Pycorrector backend may return empty results if kenlm/model assets are missing",
+                "GitHub API rate limits apply when scanning/discovery at scale",
+            ],
         }
-    
-    async def _run_batch_projects_workflow(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Run workflow for multiple projects
-        
-        Args:
-            task: Task parameters
-            
-        Returns:
-            Workflow results
-        """
-        days = task.get("days", 30)
-        min_stars = task.get("min_stars", 100)
-        limit = task.get("limit", 5)
-        create_pr = task.get("create_pr", True)
-        
-        logger.info(f"Processing batch workflow (days={days}, stars>={min_stars}, limit={limit})")
-        
-        # Discover projects
-        discovery_result = await self._discover_projects(days, min_stars, limit)
-        
-        if not discovery_result.get("success"):
-            return {"error": "Failed to discover projects"}
-        
-        projects = discovery_result.get("projects", [])
-        
-        await self.state_machine.trigger_event("projects_found")
-        
-        # Process each project
-        results = []
-        for project in projects:
-            try:
-                result = await self._process_project({
-                    "owner": project.get("owner"),
-                    "repo": project.get("name"),
-                    "create_pr": create_pr,
-                })
-                results.append(result)
-            except Exception as e:
-                logger.error(f"Error processing project: {e}")
-        
-        # Generate summary report
-        summary = {
-            "total_projects": len(projects),
-            "projects_processed": len(results),
-            "total_typos_found": sum(r.get("typos_found", 0) for r in results),
-            "total_typos_fixed": sum(r.get("typos_fixed", 0) for r in results),
-            "total_prs_created": sum(1 for r in results if r.get("pr_created")),
-            "results": results,
-        }
-        
-        return summary
-    
-    async def _process_project(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Process a single project
-        
-        Args:
-            task: Task parameters
-            
-        Returns:
-            Processing result
-        """
+
+    async def _run_workflow(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        """Run a workflow using LangGraph."""
+        workflow_type = task.get("workflow", "single_project")
+        logger.info(f"Starting LangGraph workflow: {workflow_type}")
+
+        if workflow_type == "single_project":
+            return await self._run_single_project_workflow(task)
+        if workflow_type == "batch_projects":
+            return await self._run_batch_projects_workflow(task)
+        return {"success": False, "error": f"Unknown workflow type: {workflow_type}"}
+
+    async def _run_single_project_workflow(self, task: Dict[str, Any]) -> Dict[str, Any]:
         owner = task.get("owner")
         repo = task.get("repo")
         create_pr = task.get("create_pr", True)
-        
-        logger.info(f"Processing project: {owner}/{repo}")
-        
-        # Scan for typos
+
+        if not owner or not repo:
+            return {"success": False, "error": "owner and repo are required"}
+        if not self.single_project_graph:
+            return {"success": False, "error": "Single project graph is not initialized"}
+
+        final_state = await self.single_project_graph.ainvoke({
+            "owner": owner,
+            "repo": repo,
+            "create_pr": create_pr,
+        })
+        result = final_state.get("result")
+        if isinstance(result, dict):
+            return result
+        return {"success": False, "error": "Single project workflow finished without result"}
+
+    async def _run_batch_projects_workflow(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.batch_projects_graph:
+            return {"success": False, "error": "Batch projects graph is not initialized"}
+
+        final_state = await self.batch_projects_graph.ainvoke({
+            "days": task.get("days", 30),
+            "min_stars": task.get("min_stars", 100),
+            "limit": task.get("limit", 5),
+            "create_pr": task.get("create_pr", True),
+        })
+        result = final_state.get("result")
+        if isinstance(result, dict):
+            return result
+        return {"success": False, "error": "Batch workflow finished without result"}
+
+    async def _process_project(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        """Compatibility task API for single project processing."""
+        result = await self._run_single_project_workflow(task)
+        if isinstance(result, dict):
+            result.setdefault("owner", task.get("owner", ""))
+            result.setdefault("repo", task.get("repo", ""))
+        return result
+
+    def _build_single_project_graph(self):
+        graph = StateGraph(SingleProjectWorkflowState)
+        graph.add_node("scan_project", self._node_scan_project)
+        graph.add_node("evaluate_quality", self._node_evaluate_quality)
+        graph.add_node("fix_typos", self._node_fix_typos)
+        graph.add_node("decide_pr", self._node_decide_pr)
+        graph.add_node("create_pull_request", self._node_create_pr)
+        graph.add_node("generate_report", self._node_generate_report)
+        graph.add_node("finalize", self._node_finalize_single_project)
+
+        graph.add_edge(START, "scan_project")
+        graph.add_conditional_edges(
+            "scan_project",
+            self._route_after_scan,
+            {
+                "evaluate_quality": "evaluate_quality",
+                "finalize": "finalize",
+            },
+        )
+        graph.add_edge("evaluate_quality", "fix_typos")
+        graph.add_conditional_edges(
+            "fix_typos",
+            self._route_after_fix,
+            {
+                "decide_pr": "decide_pr",
+                "generate_report": "generate_report",
+                "finalize": "finalize",
+            },
+        )
+        graph.add_conditional_edges(
+            "decide_pr",
+            self._route_after_decision,
+            {
+                "create_pull_request": "create_pull_request",
+                "generate_report": "generate_report",
+            },
+        )
+        graph.add_edge("create_pull_request", "generate_report")
+        graph.add_edge("generate_report", "finalize")
+        graph.add_edge("finalize", END)
+        return graph.compile()
+
+    def _build_batch_projects_graph(self):
+        graph = StateGraph(BatchWorkflowState)
+        graph.add_node("discover_projects", self._node_discover_projects)
+        graph.add_node("process_projects", self._node_process_projects)
+        graph.add_node("finalize_batch", self._node_finalize_batch)
+
+        graph.add_edge(START, "discover_projects")
+        graph.add_conditional_edges(
+            "discover_projects",
+            self._route_after_discovery,
+            {
+                "process_projects": "process_projects",
+                "finalize_batch": "finalize_batch",
+            },
+        )
+        graph.add_edge("process_projects", "finalize_batch")
+        graph.add_edge("finalize_batch", END)
+        return graph.compile()
+
+    async def _node_scan_project(self, state: SingleProjectWorkflowState) -> Dict[str, Any]:
+        owner = state.get("owner", "")
+        repo = state.get("repo", "")
         scan_result = await self._scan_project(owner, repo)
-        
-        if scan_result.get("total_typos", 0) == 0:
-            return {
+        update: Dict[str, Any] = {"scan_result": scan_result}
+        if not scan_result.get("success", False):
+            update["error"] = scan_result.get("error", "Failed to scan project")
+            return update
+
+        project_info = await self._get_project_info(owner, repo)
+        if project_info:
+            update["project_info"] = project_info
+        return update
+
+    async def _node_evaluate_quality(self, state: SingleProjectWorkflowState) -> Dict[str, Any]:
+        scan_result = state.get("scan_result", {})
+        quality_result = await self._evaluate_scan_quality(scan_result)
+        return {"quality_result": quality_result}
+
+    async def _node_fix_typos(self, state: SingleProjectWorkflowState) -> Dict[str, Any]:
+        quality_result = state.get("quality_result", {})
+        scan_result = state.get("scan_result", {})
+
+        # Prefer quality-filtered typo candidates; fallback to original scan output.
+        refined_results = quality_result.get("refined_detailed_results")
+        if isinstance(refined_results, list):
+            scan_result = dict(scan_result)
+            scan_result["detailed_results"] = refined_results
+            scan_result["total_typos"] = sum(
+                len(item.get("typos", [])) for item in refined_results if isinstance(item, dict)
+            )
+
+        fix_result = await self._fix_typos(scan_result)
+        update: Dict[str, Any] = {"fix_result": fix_result}
+        if not fix_result.get("success", False):
+            update["error"] = fix_result.get("error", "Failed to fix typos")
+        return update
+
+    async def _node_decide_pr(self, state: SingleProjectWorkflowState) -> Dict[str, Any]:
+        decision = await self._decide_pr(state)
+        return {"pr_decision": decision}
+
+    async def _node_create_pr(self, state: SingleProjectWorkflowState) -> Dict[str, Any]:
+        pr_result = await self._create_pr(
+            state.get("owner", ""),
+            state.get("repo", ""),
+            state.get("scan_result", {}),
+            state.get("fix_result", {}),
+        )
+        return {"pr_result": pr_result}
+
+    async def _node_generate_report(self, state: SingleProjectWorkflowState) -> Dict[str, Any]:
+        report_result = await self._generate_report({
+            "owner": state.get("owner", ""),
+            "repo": state.get("repo", ""),
+            "scan_result": state.get("scan_result", {}),
+            "quality_result": state.get("quality_result", {}),
+            "fix_result": state.get("fix_result", {}),
+            "pr_decision": state.get("pr_decision", {}),
+            "pr_result": state.get("pr_result", {}),
+        })
+        return {"report_result": report_result}
+
+    async def _node_finalize_single_project(self, state: SingleProjectWorkflowState) -> Dict[str, Any]:
+        scan_result = state.get("scan_result", {})
+        fix_result = state.get("fix_result", {})
+        pr_result = state.get("pr_result", {})
+        pr_decision = state.get("pr_decision", {})
+        quality_result = state.get("quality_result", {})
+        owner = state.get("owner", "")
+        repo = state.get("repo", "")
+
+        # Build result
+        if state.get("error"):
+            result = {
+                "success": False,
+                "error": state["error"],
+                "typos_found": scan_result.get("total_typos", 0),
+                "typos_fixed": fix_result.get("total_typos_fixed", 0),
+                "pr_created": pr_result.get("success", False),
                 "owner": owner,
                 "repo": repo,
+            }
+        elif scan_result.get("total_typos", 0) <= 0:
+            result = {
+                "success": True,
                 "typos_found": 0,
                 "typos_fixed": 0,
                 "pr_created": False,
-            }
-        
-        # Fix typos
-        fix_result = await self._fix_typos(scan_result)
-        
-        if not fix_result.get("success"):
-            return {
+                "message": "No typos found",
                 "owner": owner,
                 "repo": repo,
-                "typos_found": scan_result.get("total_typos", 0),
-                "typos_fixed": 0,
-                "pr_created": False,
-                "error": "Failed to fix typos",
             }
-        
-        # Create PR if requested
-        pr_created = False
-        if create_pr:
-            pr_result = await self._create_pr(owner, repo, scan_result, fix_result)
-            pr_created = pr_result.get("success", False)
-        
-        return {
+        else:
+            result = {
+                "success": True,
+                "typos_found": scan_result.get("total_typos", 0),
+                "typos_fixed": fix_result.get("total_typos_fixed", 0),
+                "quality_score": quality_result.get("average_quality_score"),
+                "pr_created": bool(pr_result.get("success", False)),
+                "pr_decision": pr_decision,
+                "owner": owner,
+                "repo": repo,
+            }
+
+        # Record to memory for learning
+        if self.config.enable_memory and result["success"]:
+            try:
+                await self.memory_manager.remember_experience(
+                    task_type="single_project_workflow",
+                    input_data={"owner": owner, "repo": repo},
+                    result=result,
+                    success=result["success"] and not result.get("error")
+                )
+
+                # Also remember project info if successful
+                if result.get("typos_found", 0) > 0:
+                    await self.memory_manager.remember_knowledge(
+                        key=f"project:{owner}/{repo}",
+                        value={
+                            "typos_found": result["typos_found"],
+                            "quality_score": result.get("quality_score"),
+                            "pr_created": result.get("pr_created"),
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                        importance=0.8 if result.get("pr_created") else 0.5
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to record workflow memory: {e}")
+
+        # Add to workflow history
+        self.workflow_history.append({
+            "timestamp": datetime.now().isoformat(),
             "owner": owner,
             "repo": repo,
-            "typos_found": scan_result.get("total_typos", 0),
-            "typos_fixed": fix_result.get("total_typos_fixed", 0),
-            "pr_created": pr_created,
+            "result": result,
+        })
+
+        return {"result": result}
+
+    async def _node_discover_projects(self, state: BatchWorkflowState) -> Dict[str, Any]:
+        discovery_result = await self._discover_projects(
+            days=state.get("days", 30),
+            min_stars=state.get("min_stars", 100),
+            limit=state.get("limit", 5),
+        )
+        update: Dict[str, Any] = {
+            "discovery_result": discovery_result,
+            "projects": discovery_result.get("projects", []),
         }
-    
-    async def _discover_projects(
-        self,
-        days: int,
-        min_stars: int,
-        limit: int,
-    ) -> Dict[str, Any]:
-        """
-        Discover Web3 projects using ProjectDiscoveryAgent
-        
-        Args:
-            days: Search days
-            min_stars: Minimum stars
-            limit: Result limit
-            
-        Returns:
-            Discovery result
-        """
+        if not discovery_result.get("success", False):
+            update["error"] = discovery_result.get("error", "Failed to discover projects")
+        return update
+
+    async def _node_process_projects(self, state: BatchWorkflowState) -> Dict[str, Any]:
+        projects = state.get("projects", [])
+        create_pr = state.get("create_pr", True)
+        results: List[Dict[str, Any]] = []
+
+        for project in projects:
+            owner = project.get("owner")
+            repo = project.get("name")
+            if not owner or not repo:
+                continue
+
+            final_state = await self.single_project_graph.ainvoke({
+                "owner": owner,
+                "repo": repo,
+                "create_pr": create_pr,
+            })
+            project_result = final_state.get("result", {"success": False, "error": "Missing project result"})
+            if isinstance(project_result, dict):
+                project_result.setdefault("owner", owner)
+                project_result.setdefault("repo", repo)
+            results.append(project_result)
+
+        return {"project_results": results}
+
+    async def _node_finalize_batch(self, state: BatchWorkflowState) -> Dict[str, Any]:
+        if state.get("error"):
+            return {
+                "result": {
+                    "success": False,
+                    "error": state["error"],
+                    "total_projects": 0,
+                    "projects_processed": 0,
+                    "total_typos_found": 0,
+                    "total_typos_fixed": 0,
+                    "total_prs_created": 0,
+                    "results": [],
+                }
+            }
+
+        projects = state.get("projects", [])
+        results = state.get("project_results", [])
+        summary = {
+            "success": True,
+            "total_projects": len(projects),
+            "projects_processed": len(results),
+            "total_typos_found": sum(r.get("typos_found", 0) for r in results if isinstance(r, dict)),
+            "total_typos_fixed": sum(r.get("typos_fixed", 0) for r in results if isinstance(r, dict)),
+            "total_prs_created": sum(1 for r in results if isinstance(r, dict) and r.get("pr_created")),
+            "results": results,
+        }
+        return {"result": summary}
+
+    def _route_after_scan(self, state: SingleProjectWorkflowState) -> str:
+        if state.get("error"):
+            return "finalize"
+        if state.get("scan_result", {}).get("total_typos", 0) <= 0:
+            return "finalize"
+        return "evaluate_quality"
+
+    def _route_after_fix(self, state: SingleProjectWorkflowState) -> str:
+        if state.get("error"):
+            return "finalize"
+
+        fix_result = state.get("fix_result", {})
+        if not fix_result.get("success", False):
+            return "finalize"
+        if fix_result.get("total_typos_fixed", 0) <= 0:
+            return "generate_report"
+        return "decide_pr"
+
+    def _route_after_decision(self, state: SingleProjectWorkflowState) -> str:
+        decision = state.get("pr_decision", {})
+        if decision.get("should_create_pr"):
+            return "create_pull_request"
+        return "generate_report"
+
+    def _route_after_discovery(self, state: BatchWorkflowState) -> str:
+        if state.get("error"):
+            return "finalize_batch"
+        return "process_projects"
+
+    async def _discover_projects(self, days: int, min_stars: int, limit: int) -> Dict[str, Any]:
         if not self.discovery_agent:
-            return {"error": "Discovery agent not initialized"}
-        
+            return {"success": False, "error": "Discovery agent not initialized"}
+
         logger.info(f"Discovering Web3 projects (days={days}, stars>={min_stars}, limit={limit})")
-        
         try:
             result = await self.discovery_agent.process_task({
                 "type": "search_projects",
@@ -395,12 +582,10 @@ class CoordinatorAgent(BaseAgent):
                 "min_stars": min_stars,
                 "limit": limit,
             })
-            
+
             if "error" in result:
-                logger.error(f"Project discovery failed: {result['error']}")
                 return {"success": False, "error": result["error"]}
-            
-            # Transform repos to projects format
+
             repos = result.get("repos", [])
             projects = []
             for repo in repos:
@@ -412,159 +597,226 @@ class CoordinatorAgent(BaseAgent):
                     "description": repo.get("description", ""),
                     "url": repo.get("html_url", ""),
                 })
-            
-            logger.info(f"Discovered {len(projects)} Web3 projects")
-            
-            return {
-                "success": True,
-                "projects": projects,
-                "count": len(projects),
-            }
-        
-        except Exception as e:
-            logger.error(f"Error in project discovery: {e}")
-            return {"success": False, "error": str(e)}
-    
+
+            return {"success": True, "projects": projects, "count": len(projects)}
+        except Exception as exc:
+            logger.error(f"Error in project discovery: {exc}")
+            return {"success": False, "error": str(exc)}
+
+    async def _get_project_info(self, owner: str, repo: str) -> Dict[str, Any]:
+        """
+        Try to enrich state with project metadata for PR decisioning.
+        """
+        if not self.discovery_agent:
+            return {}
+        try:
+            result = await self.discovery_agent.process_task({
+                "type": "analyze_project",
+                "owner": owner,
+                "repo": repo,
+            })
+            if isinstance(result, dict) and "error" not in result:
+                return result
+        except Exception as exc:
+            logger.warning(f"Project info analysis failed for {owner}/{repo}: {exc}")
+        return {}
+
     async def _scan_project(self, owner: str, repo: str) -> Dict[str, Any]:
-        """
-        Scan a project for typos using TypoScannerAgent
-        
-        Args:
-            owner: Repository owner
-            repo: Repository name
-            
-        Returns:
-            Scan result
-        """
         if not self.scanner_agent:
-            return {"error": "Scanner agent not initialized"}
-        
+            return {"success": False, "error": "Scanner agent not initialized"}
+
         repo_path = f"{self.work_dir}/{owner}/{repo}"
         repo_url = f"https://github.com/{owner}/{repo}.git"
-        
         logger.info(f"Scanning project: {owner}/{repo}")
-        
+
         try:
-            # Clone repository using git_tools
-            from ..tools.git_tools import git_clone
             from ..tools.file_tools import file_exists
-            
-            # Check if already cloned
+            from ..tools.git_tools import git_clone
+
             clone_needed = not await file_exists(f"{repo_path}/.git")
-            
             if clone_needed:
                 logger.info(f"Cloning repository: {repo_url}")
                 clone_result = await git_clone(repo_url, repo_path)
                 logger.info(f"Repository cloned to: {clone_result}")
             else:
                 logger.info(f"Using existing repository at: {repo_path}")
-            
-            # Scan the repository
+
             scan_result = await self.scanner_agent.process_task({
                 "type": "scan_repo",
                 "repo_path": repo_path,
             })
-            
             if "error" in scan_result:
-                logger.error(f"Scan failed: {scan_result['error']}")
                 return {"success": False, "error": scan_result["error"]}
-            
-            # Transform results to expected format
-            total_typos = scan_result.get("total_typos", 0)
-            files_with_typos = scan_result.get("files_with_typos", 0)
+
             results = scan_result.get("results", [])
-            
-            # Prepare detailed typo list
             typos_list = []
             for file_result in results:
                 file_path = file_result.get("file_path", "")
-                typos = file_result.get("typos", [])
-                for typo in typos:
+                for typo in file_result.get("typos", []):
                     typos_list.append({
                         "file": file_path,
                         "typo": typo.get("typo", ""),
                         "correction": typo.get("correction", ""),
                     })
-            
-            logger.info(f"Found {total_typos} typos in {files_with_typos} files")
-            
+
             return {
                 "success": True,
-                "total_typos": total_typos,
-                "files_with_typos": files_with_typos,
+                "total_typos": scan_result.get("total_typos", 0),
+                "files_with_typos": scan_result.get("files_with_typos", 0),
                 "repo_path": repo_path,
                 "typos_list": typos_list,
                 "detailed_results": results,
             }
-        
-        except Exception as e:
-            logger.error(f"Error scanning project: {e}")
-            return {"success": False, "error": str(e)}
-    
-    async def _fix_typos(self, scan_result: Dict[str, Any]) -> Dict[str, Any]:
+        except Exception as exc:
+            logger.error(f"Error scanning project: {exc}")
+            return {"success": False, "error": str(exc)}
+
+    async def _evaluate_scan_quality(self, scan_result: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Fix typos in a project using TypoFixerAgent
-        
-        Args:
-            scan_result: Scan result
-            
-        Returns:
-            Fix result
+        Evaluate typo suggestions before applying fixes.
         """
-        if not self.fixer_agent:
-            return {"error": "Fixer agent not initialized"}
-        
-        repo_path = scan_result.get("repo_path", "")
+        if not self.quality_evaluator_agent:
+            return {"success": False, "error": "Quality evaluator agent not initialized"}
+
         detailed_results = scan_result.get("detailed_results", [])
-        
         if not detailed_results:
-            logger.info("No typos to fix")
             return {
                 "success": True,
-                "total_typos_fixed": 0,
-                "files_fixed": 0,
+                "average_quality_score": 1.0,
+                "files_evaluated": 0,
+                "refined_detailed_results": [],
             }
-        
-        logger.info(f"Fixing typos in {len(detailed_results)} files")
-        
+
+        evaluated_files = []
+        refined_detailed_results = []
+        total_score = 0.0
+        score_count = 0
+
+        for file_result in detailed_results:
+            file_path = file_result.get("file_path")
+            typos = file_result.get("typos", [])
+            if not file_path or not typos:
+                continue
+
+            evaluation = await self.quality_evaluator_agent.process_task({
+                "type": "evaluate_fixes",
+                "file_path": file_path,
+                "typos": typos,
+            })
+            if isinstance(evaluation, dict):
+                evaluated_files.append({
+                    "file_path": file_path,
+                    "quality_score": evaluation.get("quality_score", 0.0),
+                    "quality_acceptable": evaluation.get("quality_acceptable", False),
+                    "passed_typos": evaluation.get("passed_typos", 0),
+                    "total_typos": evaluation.get("total_typos", 0),
+                })
+                total_score += float(evaluation.get("quality_score", 0.0))
+                score_count += 1
+
+                refined_detailed_results.append({
+                    "file_path": file_path,
+                    "typos": evaluation.get("evaluated_typos", []),
+                })
+
+        average_quality_score = (total_score / score_count) if score_count else 0.0
+        return {
+            "success": True,
+            "average_quality_score": round(average_quality_score, 4),
+            "files_evaluated": len(evaluated_files),
+            "file_evaluations": evaluated_files,
+            "refined_detailed_results": refined_detailed_results,
+        }
+
+    async def _fix_typos(self, scan_result: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.fixer_agent:
+            return {"success": False, "error": "Fixer agent not initialized"}
+
+        detailed_results = scan_result.get("detailed_results", [])
+        if not detailed_results:
+            return {"success": True, "total_typos_fixed": 0, "files_fixed": 0}
+
         try:
-            # Prepare files to fix
             files_to_fix = []
             for file_result in detailed_results:
                 file_path = file_result.get("file_path", "")
                 typos = file_result.get("typos", [])
                 if file_path and typos:
-                    files_to_fix.append({
-                        "file_path": file_path,
-                        "typos": typos,
-                    })
-            
-            # Fix typos
+                    files_to_fix.append({"file_path": file_path, "typos": typos})
+
+            if not files_to_fix:
+                return {"success": True, "total_typos_fixed": 0, "files_fixed": 0}
+
             fix_result = await self.fixer_agent.process_task({
                 "type": "fix_files",
                 "files": files_to_fix,
             })
-            
             if "error" in fix_result:
-                logger.error(f"Fix failed: {fix_result['error']}")
                 return {"success": False, "error": fix_result["error"]}
-            
-            total_fixed = fix_result.get("total_typos_fixed", 0)
-            files_fixed = fix_result.get("files_fixed", 0)
-            
-            logger.info(f"Fixed {total_fixed} typos in {files_fixed} files")
-            
+
             return {
                 "success": True,
-                "total_typos_fixed": total_fixed,
-                "files_fixed": files_fixed,
+                "total_typos_fixed": fix_result.get("total_typos_fixed", 0),
+                "files_fixed": fix_result.get("files_fixed", 0),
                 "fix_results": fix_result.get("results", []),
             }
-        
-        except Exception as e:
-            logger.error(f"Error fixing typos: {e}")
-            return {"success": False, "error": str(e)}
-    
+        except Exception as exc:
+            logger.error(f"Error fixing typos: {exc}")
+            return {"success": False, "error": str(exc)}
+
+    async def _decide_pr(self, state: SingleProjectWorkflowState) -> Dict[str, Any]:
+        """
+        Decide whether PR should be created for this workflow run.
+        """
+        if not state.get("create_pr", True):
+            return {
+                "should_create_pr": False,
+                "reason": "create_pr flag is disabled",
+                "source": "workflow_input",
+            }
+
+        fix_result = state.get("fix_result", {})
+        if fix_result.get("total_typos_fixed", 0) <= 0:
+            return {
+                "should_create_pr": False,
+                "reason": "No applied fixes",
+                "source": "workflow_state",
+            }
+
+        if not self.decision_agent:
+            return {
+                "should_create_pr": True,
+                "reason": "Decision agent unavailable; default allow",
+                "source": "fallback",
+            }
+
+        project_info = state.get("project_info", {})
+        quality_result = state.get("quality_result", {})
+        scan_result = state.get("scan_result", {})
+
+        stars = int(project_info.get("stars", 100) or 100)
+        acceptance_rate = float(project_info.get("acceptance_rate", 0.0) or 0.0)
+        recent_prs = int(project_info.get("recent_prs", 0) or 0)
+        activity_score = min(100, int(acceptance_rate * 100) + recent_prs * 2)
+
+        decision = await self.decision_agent.process_task({
+            "type": "should_create_pr",
+            "project": {
+                "stars": stars,
+                "activity_score": activity_score,
+            },
+            "typos_found": scan_result.get("total_typos", 0),
+            "quality_score": quality_result.get("average_quality_score", 0.0),
+        })
+
+        should_create = bool(decision.get("should_create", False))
+        return {
+            "should_create_pr": should_create,
+            "reason": "DecisionAgent approval" if should_create else "; ".join(decision.get("reasons", [])),
+            "source": "decision_agent",
+            "factors": decision.get("factors", {}),
+        }
+
     async def _create_pr(
         self,
         owner: str,
@@ -572,46 +824,22 @@ class CoordinatorAgent(BaseAgent):
         scan_result: Dict[str, Any],
         fix_result: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """
-        Create a pull request using PRCreatorAgent
-        
-        Args:
-            owner: Repository owner
-            repo: Repository name
-            scan_result: Scan result
-            fix_result: Fix result
-            
-        Returns:
-            PR creation result
-        """
         if not self.pr_creator_agent:
-            return {"error": "PR creator agent not initialized"}
-        
+            return {"success": False, "error": "PR creator agent not initialized"}
+
         repo_path = scan_result.get("repo_path", "")
         fix_results = fix_result.get("fix_results", [])
-        
         if not fix_results:
-            logger.info("No changes to create PR for")
-            return {
-                "success": False,
-                "error": "No changes to submit",
-            }
-        
-        logger.info(f"Creating PR for {owner}/{repo}")
-        
+            return {"success": False, "error": "No changes to submit"}
+
         try:
-            # Prepare changes data for PR
             changes = []
             for fix in fix_results:
                 file_path = fix.get("file_path", "")
                 typos_fixed = fix.get("typos_fixed", 0)
                 if file_path and typos_fixed > 0:
-                    changes.append({
-                        "file": file_path,
-                        "typos": typos_fixed,
-                    })
-            
-            # Create PR using PRCreatorAgent
+                    changes.append({"file": file_path, "typos": typos_fixed})
+
             pr_result = await self.pr_creator_agent.process_task({
                 "type": "create_pr",
                 "owner": owner,
@@ -619,81 +847,73 @@ class CoordinatorAgent(BaseAgent):
                 "repo_path": repo_path,
                 "changes": changes,
             })
-            
             if "error" in pr_result:
-                logger.error(f"PR creation failed: {pr_result['error']}")
                 return {"success": False, "error": pr_result["error"]}
-            
-            pr_number = pr_result.get("pr_number")
-            pr_url = pr_result.get("pr_url")
-            
-            logger.info(f"Created PR #{pr_number}: {pr_url}")
-            
+
             return {
                 "success": True,
-                "pr_number": pr_number,
-                "pr_url": pr_url,
+                "pr_number": pr_result.get("pr_number"),
+                "pr_url": pr_result.get("pr_url"),
             }
-        
-        except Exception as e:
-            logger.error(f"Error creating PR: {e}")
-            return {"success": False, "error": str(e)}
-    
+        except Exception as exc:
+            logger.error(f"Error creating PR: {exc}")
+            return {"success": False, "error": str(exc)}
+
     async def _generate_report(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Generate a report using ReportGeneratorAgent
-        
-        Args:
-            data: Report data containing owner, repo, scan_result, fix_result
-            
-        Returns:
-            Report generation result
-        """
         if not self.report_generator_agent:
-            return {"error": "Report generator agent not initialized"}
-        
+            return {"success": False, "error": "Report generator agent not initialized"}
+
         owner = data.get("owner", "")
         repo = data.get("repo", "")
         scan_result = data.get("scan_result", {})
+        quality_result = data.get("quality_result", {})
         fix_result = data.get("fix_result", {})
-        
-        logger.info(f"Generating report for {owner}/{repo}")
-        
+        pr_decision = data.get("pr_decision", {})
+        pr_result = data.get("pr_result", {})
+
         try:
-            # Prepare report data
             report_data = {
                 "project": f"{owner}/{repo}",
                 "scan_summary": {
                     "total_typos": scan_result.get("total_typos", 0),
                     "files_with_typos": scan_result.get("files_with_typos", 0),
                 },
+                "quality_summary": {
+                    "average_quality_score": quality_result.get("average_quality_score"),
+                    "files_evaluated": quality_result.get("files_evaluated"),
+                },
                 "fix_summary": {
                     "total_typos_fixed": fix_result.get("total_typos_fixed", 0),
                     "files_fixed": fix_result.get("files_fixed", 0),
                 },
+                "pr_summary": {
+                    "should_create_pr": pr_decision.get("should_create_pr"),
+                    "decision_reason": pr_decision.get("reason"),
+                    "pr_created": pr_result.get("success", False),
+                    "pr_number": pr_result.get("pr_number"),
+                    "pr_url": pr_result.get("pr_url"),
+                },
                 "typos_list": scan_result.get("typos_list", []),
             }
-            
-            # Generate typo fix report
+
             report_result = await self.report_generator_agent.process_task({
                 "type": "generate_typo_fix_report",
                 "results": [report_data],
                 "output_file": f"{self.work_dir}/{owner}_{repo}_report.md",
             })
-            
             if "error" in report_result:
-                logger.error(f"Report generation failed: {report_result['error']}")
                 return {"success": False, "error": report_result["error"]}
-            
-            output_file = report_result.get("output_file", "")
-            
-            logger.info(f"Report generated: {output_file}")
-            
-            return {
-                "success": True,
-                "report_file": output_file,
-            }
-        
-        except Exception as e:
-            logger.error(f"Error generating report: {e}")
-            return {"success": False, "error": str(e)}
+
+            return {"success": True, "report_file": report_result.get("output_file", "")}
+        except Exception as exc:
+            logger.error(f"Error generating report: {exc}")
+            return {"success": False, "error": str(exc)}
+
+    async def _stop_sub_agent(self, agent: Optional[Any]) -> None:
+        """Best-effort stop for a child agent instance."""
+        if not agent:
+            return
+        try:
+            await agent.stop()
+        except Exception as exc:
+            logger.warning(f"Failed to stop sub-agent cleanly: {exc}")

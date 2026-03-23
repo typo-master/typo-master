@@ -38,9 +38,18 @@ class GitOperations:
             Command output
         """
         cmd = ["git"] + list(args)
+        # Use a safe working directory. For clone operations the target repo path
+        # may not exist yet, so fallback to an existing parent/current directory.
+        if self.repo_path.exists():
+            cwd = self.repo_path
+        elif self.repo_path.parent.exists():
+            cwd = self.repo_path.parent
+        else:
+            cwd = Path(".")
+
         result = subprocess.run(
             cmd,
-            cwd=self.repo_path,
+            cwd=cwd,
             capture_output=True,
             text=True,
             check=True
@@ -62,13 +71,15 @@ class GitOperations:
             dest_path = Path(destination)
         else:
             dest_path = self.repo_path
+        dest_path = dest_path.expanduser()
         
         dest_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path = dest_path.resolve()
         
-        logger.info(f"Cloning repository from {url} to {dest_path}")
-        self._run_git_command("clone", url, str(dest_path))
+        logger.info(f"Cloning repository from {url} to {target_path}")
+        self._run_git_command("clone", url, str(target_path))
         
-        return str(dest_path)
+        return str(target_path)
     
     def checkout(self, branch: str) -> None:
         """

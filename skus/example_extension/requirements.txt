@@ -1,0 +1,7 @@
+# Example Extension 依赖
+# 这里列出 SKU 需要的 Python 包
+# 会在加载时自动安装
+
+# 示例：不需要额外依赖
+# requests>=2.28.0
+# pandas>=1.5.0

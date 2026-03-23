@@ -10,6 +10,16 @@
 2. **扫描拼写错误** - 自动扫描项目中的拼写错误，过滤Web3术语
 3. **修复和提交PR** - 自动修复拼写错误并创建PR
 
+## 产品化布局（新）
+
+当前项目已新增产品化目录结构，便于继续做“对话 + 自主行为 + 外部系统接入”：
+
+- `app/frontend`：TypeScript + React + Ant Design 前端控制台
+- `app/backend`：Python API Server（对话、能力查询、工作流控制）
+- `app/agent`：Agent runtime 适配层（连接后端与 LangGraph Coordinator）
+
+后续开发建议优先在 `app/` 下进行，`src/` 保留为现有算法与 agent 实现模块。
+
 ## 模块化架构
 
 项目采用了清晰的模块化设计，所有代码位于`src`目录下：
@@ -32,6 +42,15 @@
   - `controller.py` - 主控制器
 - **src/scripts/** - 命令行脚本
   - `web3_typo_hunter_cli.py` - CLI实现
+- **src/agents/coordinator_agent.py** - 基于 LangGraph 的工作流编排器（唯一实现）
+
+当前默认编排框架为 **LangGraph**（`StateGraph`），用于驱动发现→扫描→修复→PR→报告的状态流转。
+
+可通过以下命令查看当前 Type Agent 能力矩阵：
+
+```bash
+python web3_typo_hunter_cli.py capabilities
+```
 
 ## 安装说明
 
@@ -39,6 +58,12 @@
 
 ```bash
 pip install -r requirements.txt
+```
+
+如需启动产品后端接口，再安装：
+
+```bash
+pip install -r app/backend/requirements.txt
 ```
 
 ### 开发模式安装
@@ -55,7 +80,52 @@ pip install -e .
 ```
 下载好后放在`~/.pycorrector/datasets`文件夹下。
 
+## LLM API配置（安全）
+
+项目已支持 OpenAI 兼容的 `/v1/responses` 接口，建议使用环境变量注入密钥：
+
+```bash
+export OPENAI_BASE_URL="https://your-openai-compatible-endpoint"
+export OPENAI_MODEL="gpt-5.4"
+export OPENAI_API_KEY="sk-xxxx"
+```
+
+连通性检查命令：
+
+```bash
+python web3_typo_hunter_cli.py llm-check
+```
+
+安全建议：
+- 不要把真实 `OPENAI_API_KEY` 写入仓库文件
+- 本仓库已忽略 `.env` 与 `config.yml`，可将本地私钥放在这些本地文件或 shell 环境中
+- 提交前使用 `git status` 检查，确认没有私钥相关改动被跟踪
+
 ## 使用方法
+
+### 产品接口与控制台（推荐）
+
+启动后端：
+
+```bash
+python3 app/backend/run.py
+```
+
+启动前端：
+
+```bash
+cd app/frontend
+npm install
+npm run dev
+```
+
+常用接口：
+- `GET /api/v1/health`
+- `GET /api/v1/capabilities`
+- `POST /api/v1/conversations`
+- `POST /api/v1/conversations/{id}/messages`
+- `POST /api/v1/agent/workflows`
+- `GET /api/v1/agent/workflows/{task_id}`
 
 项目提供了直观的命令行界面，有三种主要操作模式：
 
@@ -241,8 +311,19 @@ web3-typo-hunter process --token YOUR_GITHUB_TOKEN --days 30 --min-stars 100 --l
 
 
 
+## 本地开发服务管理（PM2）
 
+为避免前后端在开发时因终端关闭或异常退出导致中断，项目已提供 PM2 托管脚本（前后端一起管理）：
 
+启动：
+./start.sh
 
+常用管理命令：
+./scripts/pm2_status.sh
+./scripts/pm2_logs.sh
+./scripts/pm2_stop_all.sh
 
-
+固定访问地址：
+- Frontend: http://127.0.0.1:50121
+- Backend API Base: http://127.0.0.1:50120/api/v1
+- Backend Health: http://127.0.0.1:50120/api/v1/health

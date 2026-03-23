@@ -49,6 +49,8 @@ WEB3_TERMS = [
     "gas", "size", "uncles", "ommer", "transactions", "uncle", "ommer",
 ]
 
+_SPELL_CHECKER = None
+
 
 class SpellChecker:
     """Spell checker with Web3 term filtering"""
@@ -56,6 +58,14 @@ class SpellChecker:
     def __init__(self):
         """Initialize spell checker"""
         self.web3_terms = set(term.lower() for term in WEB3_TERMS)
+        self._corrector = None
+        self._backend_failed = False
+        if hasattr(pycorrector, "Corrector"):
+            try:
+                self._corrector = pycorrector.Corrector()
+            except Exception as exc:
+                logger.warning(f"Failed to initialize pycorrector Corrector: {exc}")
+                self._backend_failed = True
     
     def check_text(self, text: str) -> List[Tuple[str, str]]:
         """
@@ -67,7 +77,9 @@ class SpellChecker:
         Returns:
             List of (typo, correction) tuples
         """
-        errors, details = pycorrector.correct(text)
+        details = self._detect_typos(text)
+        if not details:
+            return []
         
         # Filter out Web3 terms
         filtered_errors = []
@@ -87,22 +99,55 @@ class SpellChecker:
             filtered_errors.append((typo, correction))
         
         return filtered_errors
-    
+
+    def _detect_typos(self, text: str) -> List[Tuple[str, str]]:
+        """
+        Detect typos across different pycorrector versions.
+
+        Returns:
+            List of (typo, correction) tuples
+        """
+        if self._backend_failed:
+            return []
+
+        # Older pycorrector versions expose module-level correct()
+        if hasattr(pycorrector, "correct"):
+            try:
+                _errors, details = pycorrector.correct(text)
+                return details or []
+            except Exception as exc:
+                logger.warning(f"pycorrector.correct failed: {exc}")
+                self._backend_failed = True
+
+        # Newer versions use Corrector().correct()
+        if self._corrector and hasattr(self._corrector, "correct"):
+            try:
+                _errors, details = self._corrector.correct(text)
+                return details or []
+            except Exception as exc:
+                logger.warning(f"pycorrector Corrector.correct failed: {exc}")
+                self._backend_failed = True
+
+        if not self._backend_failed:
+            logger.warning("No usable pycorrector backend found, returning empty typo results")
+            self._backend_failed = True
+        return []
+
     def _should_skip(self, typo: str, correction: str) -> bool:
         """
         Check if a typo should be skipped
-        
+
         Args:
             typo: Original text
             correction: Suggested correction
-            
+
         Returns:
             True if should skip
         """
         # Skip very short words
         if len(typo) <= 3:
             return True
-        
+
         # Skip if it looks like code
         if re.match(r'^[_a-zA-Z][_a-zA-Z0-9]*$', typo):
             # Check if it's in a common code context
@@ -119,45 +164,53 @@ class SpellChecker:
             for pattern in code_patterns:
                 if re.search(pattern, typo):
                     return True
-        
+
         # Skip URLs
         if '://' in typo or typo.startswith(('http', 'https', 'ftp')):
             return True
-        
+
         # Skip file paths
         if '/' in typo or '\\' in typo:
             return True
-        
+
         # Skip if it's an acronym
         if typo.isupper() and len(typo) <= 5:
             return True
-        
+
         return False
-    
+
     def get_corrections(self, text: str) -> Dict[str, str]:
         """
         Get suggested corrections for text
-        
+
         Args:
             text: Text to check
-            
+
         Returns:
             Dictionary of {typo: correction}
         """
         errors = self.check_text(text)
         return {typo: correction for typo, correction in errors}
-    
+
     def is_web3_term(self, term: str) -> bool:
         """
         Check if a term is a Web3 term
-        
+
         Args:
             term: Term to check
-            
+
         Returns:
             True if the term is a Web3 term
         """
         return term.lower() in self.web3_terms
+
+
+def _get_spell_checker() -> SpellChecker:
+    """Get singleton spell checker to reduce repeated model initialization."""
+    global _SPELL_CHECKER
+    if _SPELL_CHECKER is None:
+        _SPELL_CHECKER = SpellChecker()
+    return _SPELL_CHECKER
 
 
 # Tool functions
@@ -185,7 +238,7 @@ async def check_spelling(
     Returns:
         List of {typo, correction} dictionaries
     """
-    checker = SpellChecker()
+    checker = _get_spell_checker()
     errors = checker.check_text(text)
     
     return [
@@ -217,7 +270,7 @@ async def correct_spelling(
     Returns:
         Corrected text
     """
-    checker = SpellChecker()
+    checker = _get_spell_checker()
     errors = checker.check_text(text)
     
     corrected = text
@@ -254,7 +307,7 @@ async def get_spelling_suggestions(
         List of suggestions
     """
     # Use pycorrector to get suggestions
-    checker = SpellChecker()
+    checker = _get_spell_checker()
     
     # Create a sentence with the word
     test_text = f"This is a {word}"
@@ -295,7 +348,7 @@ async def is_web3_term(
     Returns:
         True if it's a Web3 term
     """
-    checker = SpellChecker()
+    checker = _get_spell_checker()
     return word.lower() in checker.web3_terms
 
 
@@ -326,7 +379,7 @@ async def check_file_spelling(
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        checker = SpellChecker()
+        checker = _get_spell_checker()
         errors = checker.check_text(content)
         
         return {
