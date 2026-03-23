@@ -19,7 +19,7 @@ body {
   margin: 0;
   font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
   color: var(--text-main);
-  background: #f0fdf4;
+  background: transparent;
 }
 
 .page-layout {
@@ -105,7 +105,7 @@ body {
 .main-content {
   padding: 24px;
   min-height: calc(100vh - 64px - 48px);
-  background: #f0fdf4;
+  background: transparent;
 }
 
 .main-content:has(.workspace-page .ai-chat-card) {
@@ -148,7 +148,7 @@ body {
 }
 
 .settings-page .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
-  background: #f0fdf4;
+  background: transparent;
   border-color: var(--line);
 }
 
@@ -210,7 +210,7 @@ body {
 /* 功能特性区域 */
 .features-section {
   padding: 60px 24px;
-  background: #f0fdf4;
+  background: transparent;
 }
 
 .section-header {
@@ -254,14 +254,14 @@ body {
 .workflow-diagram {
   text-align: center;
   padding: 24px;
-  background: #f9fafb;
-  border-radius: 8px;
+  background: transparent;
+  border-radius: 4px;
 }
 
 /* 语言支持区域 */
 .languages-section {
   padding: 60px 24px;
-  background: #f0fdf4;
+  background: transparent;
 }
 
 .languages-card {
@@ -276,8 +276,8 @@ body {
 }
 
 .language-item:hover {
-  background: #f9fafb;
-  border-radius: 8px;
+  background: transparent;
+  border-radius: 4px;
 }
 
 /* 技术特点区域 */
@@ -294,7 +294,7 @@ body {
 /* 使用场景区域 */
 .scenarios-section {
   padding: 60px 24px;
-  background: #f0fdf4;
+  background: transparent;
 }
 
 .scenario-card {
@@ -389,7 +389,7 @@ body {
 
 /* 卡片样式 - 扁平化 */
 .flat-card {
-  border-radius: 8px;
+  border-radius: 4px;
   border: 1px solid var(--line);
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
   background: var(--bg-surface);
@@ -402,8 +402,8 @@ body {
 
 .flat-card > .ant-card-head {
   border-bottom: 1px solid var(--line);
-  background: #f0fdf4;
-  border-radius: 8px 8px 0 0;
+  background: transparent;
+  border-radius: 4px 4px 0 0;
 }
 
 .flat-card > .ant-card-head-title {
@@ -441,7 +441,7 @@ body {
 /* 聊天气泡 - 扁平化 */
 .chat-bubble {
   width: 100%;
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 12px 16px;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
@@ -455,7 +455,7 @@ body {
 
 .chat-bubble.user {
   border-color: #86efac;
-  background: #f0fdf4;
+  background: transparent;
 }
 
 .chat-bubble.assistant {
@@ -477,7 +477,7 @@ body {
 }
 
 .chat-input-area .ant-input {
-  border-radius: 6px;
+  border-radius: 4px;
   border-color: var(--line);
   resize: none;
 }
@@ -489,10 +489,10 @@ body {
 
 /* 统计卡片 - 扁平化绿色 */
 .stat-card {
-  background: #f0fdf4;
+  background: transparent;
   border: 1px solid var(--line);
   text-align: center;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 .stat-card .ant-statistic-title {
@@ -553,8 +553,8 @@ body {
 .result-box {
   margin: 0;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #f8fafc;
+  border-radius: 4px;
+  background: transparent;
   padding: 12px;
   overflow-x: auto;
   font-size: 12px;
@@ -671,7 +671,7 @@ body {
 
 /* Alert 样式 - 扁平化 */
 .ant-alert-success {
-  background: #f0fdf4;
+  background: transparent;
   border-color: #86efac;
 }
 
@@ -690,9 +690,9 @@ body {
 }
 
 .workspace-tabs > .ant-tabs-nav .ant-tabs-tab {
-  background: #f0fdf4;
+  background: transparent;
   border-color: var(--line);
-  border-radius: 6px 6px 0 0;
+  border-radius: 4px 4px 0 0;
   padding: 6px 14px;
 }
 
@@ -709,7 +709,7 @@ body {
 
 .workspace-tabs > .ant-tabs-content {
   background: #fff;
-  border-radius: 0 8px 8px 8px;
+  border-radius: 0 4px 4px 4px;
   min-height: 500px;
 }
 
@@ -727,7 +727,7 @@ body {
 }
 
 .skill-list .ant-card-head {
-  background: #f0fdf4;
+  background: transparent;
   border-bottom: 1px solid var(--line);
 }
 
@@ -742,18 +742,18 @@ body {
 
 /* 触发器管理样式 */
 .trigger-manager .ant-card-head {
-  background: #f0fdf4;
+  background: transparent;
   border-bottom: 1px solid var(--line);
 }
 
 .trigger-manager .ant-list-item {
   padding: 16px;
   transition: background 0.2s;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 .trigger-manager .ant-list-item:hover {
-  background: #f9fafb;
+  background: transparent;
 }
 
 /* AI Chat 卡片样式优化 */
@@ -765,7 +765,7 @@ body {
 }
 
 .ai-chat-card .ant-card-head {
-  background: #f0fdf4;
+  background: transparent;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
@@ -804,13 +804,13 @@ body {
 }
 
 .autocomplete-item.selected {
-  background-color: #f0fdf4;
+  background-color: transparent;
 }
 
 /* 代码高亮样式 */
 .autocomplete-code {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  background: #f8fafc;
+  background: transparent;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 11px;
