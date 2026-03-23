@@ -1,455 +1,496 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  Card,
-  Row,
-  Col,
-  Typography,
-  Space,
-  Tag,
-  Button,
-  Statistic,
-  Steps,
   Alert,
-  Badge,
-  Divider,
-  List,
-  Avatar,
-  Carousel,
+  Button,
+  Card,
+  Col,
+  Row,
+  Space,
+  Steps,
+  Tag,
+  Typography,
 } from "antd";
 import {
-  ThunderboltOutlined,
-  RobotOutlined,
-  GithubOutlined,
-  CheckCircleOutlined,
-  SearchOutlined,
-  FileSearchOutlined,
-  BugOutlined,
-  PullRequestOutlined,
-  FileTextOutlined,
-  SafetyOutlined,
-  BranchesOutlined,
-  StarOutlined,
-  ArrowRightOutlined,
-  PlayCircleOutlined,
-  GlobalOutlined,
-  CodeOutlined,
-  TeamOutlined,
-  TrophyOutlined,
-  RocketOutlined,
-  ToolOutlined,
-  DashboardOutlined,
   ApiOutlined,
+  ArrowRightOutlined,
+  BranchesOutlined,
+  BugOutlined,
+  CheckCircleOutlined,
+  CloudOutlined,
+  CodeOutlined,
+  DashboardOutlined,
+  DatabaseOutlined,
+  FileSearchOutlined,
+  FileTextOutlined,
+  GithubOutlined,
+  LinkOutlined,
+  PlayCircleOutlined,
+  PullRequestOutlined,
+  RocketOutlined,
+  SafetyOutlined,
+  SearchOutlined,
+  SettingOutlined,
+  TeamOutlined,
+  ThunderboltOutlined,
+  ToolOutlined,
 } from "@ant-design/icons";
 import { Link } from "react-router-dom";
 import { useConfig } from "../config";
 import { fetchCapabilities } from "../api";
 import type { CapabilityPayload } from "../types";
 
-const { Title, Text, Paragraph } = Typography;
-const { Step } = Steps;
+const { Title, Paragraph, Text } = Typography;
 
-// 功能特性数据
-const features = [
-  {
+interface CapabilityFeatureMeta {
+  title: string;
+  description: string;
+  icon: ReactNode;
+}
+
+const capabilityFeatureMeta: Record<string, CapabilityFeatureMeta> = {
+  project_discovery: {
+    title: "仓库发现",
+    description: "快速定位值得治理的目标仓库和文档目录",
     icon: <SearchOutlined />,
-    title: "智能发现",
-    desc: "自动搜索 GitHub 热门仓库，支持按星标数、更新时间筛选",
-    color: "#22c55e",
   },
-  {
+  typo_scan: {
+    title: "智能扫描",
+    description: "覆盖代码与文档，自动识别拼写与术语问题",
     icon: <FileSearchOutlined />,
-    title: "深度扫描",
-    desc: "多语言代码拼写检查，支持 MD/TXT/PY/JS/TS/SOL 等格式",
-    color: "#3b82f6",
   },
-  {
-    icon: <SafetyOutlined />,
+  quality_evaluation: {
     title: "质量评估",
-    desc: "AI 智能评估拼写错误严重程度，过滤 Web3 专业术语误报",
-    color: "#8b5cf6",
+    description: "结合上下文过滤误报，输出更可信的结果",
+    icon: <SafetyOutlined />,
   },
-  {
-    icon: <BugOutlined />,
+  typo_fix: {
     title: "自动修复",
-    desc: "一键生成拼写修复补丁，智能保留代码语义",
-    color: "#f59e0b",
+    description: "批量生成修复建议，尽量不破坏语义",
+    icon: <BugOutlined />,
   },
-  {
+  pr_decision: {
+    title: "PR 决策",
+    description: "按规则判断是否值得提交 PR",
     icon: <PullRequestOutlined />,
-    title: "PR 创建",
-    desc: "自动创建 Pull Request，生成专业的 PR 描述",
-    color: "#ec4899",
+  },
+  pr_creation: {
+    title: "PR 生成",
+    description: "自动整理修改说明并发起 Pull Request",
+    icon: <GithubOutlined />,
+  },
+  report_generation: {
+    title: "结果报告",
+    description: "支持 JSON / Markdown / HTML / CSV 输出",
+    icon: <FileTextOutlined />,
+  },
+  llm_decision_support: {
+    title: "LLM 辅助",
+    description: "在关键节点提供模型推理支持",
+    icon: <ThunderboltOutlined />,
+  },
+  mcp_tool_execution: {
+    title: "MCP 互联",
+    description: "可直接调用外部 MCP Server 的工具能力",
+    icon: <CloudOutlined />,
+  },
+  sql_execution: {
+    title: "SQL 分析",
+    description: "通过 Skill 执行查询，辅助质量诊断",
+    icon: <DatabaseOutlined />,
+  },
+};
+
+const valueProps = [
+  {
+    title: "问题 1：拼写与术语问题容易漏检",
+    desc: "代码、注释、文档分散在多个文件里，人工检查很难稳定覆盖。",
+    icon: <FileSearchOutlined />,
   },
   {
-    icon: <FileTextOutlined />,
-    title: "报告生成",
-    desc: "支持 CSV/JSON/Markdown/HTML 多种格式报告导出",
-    color: "#14b8a6",
+    title: "问题 2：手工排查和修复太耗时",
+    desc: "从发现问题到逐个修复、再整理说明，过程重复且容易中断。",
+    icon: <BugOutlined />,
+  },
+  {
+    title: "问题 3：结果难沉淀、难复用",
+    desc: "没有统一流程时，问题历史和修复质量难以持续追踪与复用。",
+    icon: <SafetyOutlined />,
   },
 ];
 
-// 支持的编程语言
-const languages = [
-  { name: "Markdown", ext: ".md", color: "#000" },
-  { name: "Python", ext: ".py", color: "#3776ab" },
-  { name: "JavaScript", ext: ".js", color: "#f7df1e" },
-  { name: "TypeScript", ext: ".ts", color: "#3178c6" },
-  { name: "Solidity", ext: ".sol", color: "#363636" },
-  { name: "Rust", ext: ".rs", color: "#dea584" },
-  { name: "Go", ext: ".go", color: "#00add8" },
-  { name: "Java", ext: ".java", color: "#007396" },
+const useCases = [
+  {
+    title: "开源维护者",
+    desc: "在每次发布前快速扫描仓库，减少低级错误进入主分支。",
+    icon: <GithubOutlined />,
+  },
+  {
+    title: "独立开发者",
+    desc: "把重复的质量检查自动化，把时间留给功能开发本身。",
+    icon: <CodeOutlined />,
+  },
+  {
+    title: "技术内容创作者",
+    desc: "写文档、教程、示例代码时保持术语一致和表达专业。",
+    icon: <TeamOutlined />,
+  },
 ];
 
-// 工作流步骤
-const workflowSteps = [
-  { title: "发现项目", desc: "搜索 GitHub 仓库" },
-  { title: "扫描代码", desc: "检测拼写错误" },
-  { title: "质量评估", desc: "AI 智能分析" },
-  { title: "生成修复", desc: "自动修复建议" },
-  { title: "创建 PR", desc: "提交修复补丁" },
+const activationSteps = [
+  {
+    title: "完成配置",
+    description: "在设置页配置 LLM、GitHub Token 与权限策略",
+  },
+  {
+    title: "跑通首个任务",
+    description: "在任务执行页选择仓库并启动单仓库扫描流程",
+  },
+  {
+    title: "形成你的日常流程",
+    description: "根据你的节奏配置 Skill、触发器与对接方式",
+  },
 ];
 
-// 统计数据
-const stats = [
-  { label: "支持语言", value: "15+", suffix: "种" },
-  { label: "检测准确率", value: "95", suffix: "%" },
-  { label: "平均处理", value: "2", suffix: "秒/文件" },
-  { label: "开源社区", value: "1000+", suffix: "Stars" },
+const integrationCards = [
+  {
+    title: "MCP SSE",
+    detail: "提供 /mcp/sse 与 /mcp/messages，可被外部 MCP 客户端直接调用。",
+    icon: <ApiOutlined />,
+  },
+  {
+    title: "REST API",
+    detail: "覆盖 Skills、MCP、Workflow、Permissions 等核心能力接口。",
+    icon: <LinkOutlined />,
+  },
+  {
+    title: "权限治理",
+    detail: "支持 Git/GitHub/Shell/外部访问等细粒度权限开关。",
+    icon: <SettingOutlined />,
+  },
 ];
+
+function toTitleFromKey(raw: string): string {
+  return raw
+    .split("_")
+    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+    .join(" ");
+}
 
 export default function HomePage() {
   const { config } = useConfig();
   const [caps, setCaps] = useState<CapabilityPayload | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [capsError, setCapsError] = useState("");
 
   useEffect(() => {
-    fetchCapabilities().then(setCaps).catch(console.error);
+    let active = true;
+    setLoading(true);
+    fetchCapabilities()
+      .then((payload) => {
+        if (!active) return;
+        setCaps(payload);
+        setCapsError("");
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setCapsError(String(error));
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
+  const metricCards = useMemo(() => {
+    if (!caps) {
+      return [
+        { key: "workflow", label: "可用工作流", value: "--", hint: loading ? "加载中" : "等待数据" },
+        { key: "nodes", label: "流程节点", value: "--", hint: "LangGraph Pipeline" },
+        { key: "skills", label: "启用技能", value: "--", hint: "Skill Registry" },
+        { key: "mcp", label: "MCP 服务", value: "--", hint: "集成能力" },
+      ];
+    }
+
+    const enabledWorkflows = Object.values(caps.workflows || {}).filter(Boolean).length;
+    return [
+      {
+        key: "workflow",
+        label: "可用工作流",
+        value: String(enabledWorkflows),
+        hint: `${Object.keys(caps.workflows || {}).length} 个流程定义`,
+      },
+      {
+        key: "nodes",
+        label: "流程节点",
+        value: String((caps.pipeline_nodes || []).length),
+        hint: "LangGraph Pipeline",
+      },
+      {
+        key: "skills",
+        label: "启用技能",
+        value: caps.skill_registry
+          ? `${caps.skill_registry.enabled}/${caps.skill_registry.total}`
+          : "--",
+        hint: caps.skill_registry
+          ? `内置 ${caps.skill_registry.builtin} · 自定义 ${caps.skill_registry.custom}`
+          : "Skill Registry",
+      },
+      {
+        key: "mcp",
+        label: "MCP 服务",
+        value: caps.mcp ? `${caps.mcp.enabled_servers}/${caps.mcp.total_servers}` : "--",
+        hint: caps.mcp ? caps.mcp.adapter : "MCP Adapter",
+      },
+    ];
+  }, [caps, loading]);
+
+  const capabilityCards = useMemo(() => {
+    if (!caps?.features) return [];
+    return Object.entries(caps.features)
+      .filter(([, enabled]) => Boolean(enabled))
+      .map(([key]) => {
+        const meta = capabilityFeatureMeta[key];
+        return {
+          key,
+          title: meta?.title ?? toTitleFromKey(key),
+          description: meta?.description ?? "能力已启用",
+          icon: meta?.icon ?? <CheckCircleOutlined />,
+        };
+      });
+  }, [caps]);
+
+  const llmBadge = caps?.llm?.enabled
+    ? `LLM: ${caps.llm.model || "已启用"}`
+    : "LLM: 未启用";
+
+  const mcpSseEnabled = Boolean(
+    (caps as (CapabilityPayload & { mcp_sse?: { enabled?: boolean } }) | null)?.mcp_sse?.enabled
+  );
+
   return (
-    <div className="home-page">
-      {/* Hero 区域 */}
-      <section className="hero-section">
-        <div className="hero-content">
-          <Badge.Ribbon text="v0.2.0" color="#22c55e">
-            <Title level={1} className="hero-title">
-              <RobotOutlined /> 拼写猎人
-              <ThunderboltOutlined style={{ color: "#22c55e" }} />
-            </Title>
-          </Badge.Ribbon>
-          <Paragraph className="hero-subtitle">
-            智能代码拼写检查与自动修复系统
-            <br />
-            <Text type="secondary">让代码文档更专业，让开源贡献更轻松</Text>
+    <div className="home-page home-page-marketing">
+      <section className="marketing-hero">
+        <div className="marketing-hero-glow" />
+        <div className="marketing-hero-inner">
+          <Tag color="green" className="marketing-badge">
+            面向真实开发问题的智能质量助手
+          </Tag>
+          <Title level={1} className="marketing-title">
+            把仓库质量治理从“人工排查”升级成“自动化流水线”
+          </Title>
+          <Paragraph className="marketing-subtitle">
+            Type Master 把仓库发现、拼写扫描、质量评估、自动修复与 PR 决策串成一条可复用流程，
+            帮你持续减少低质量拼写问题，并把修复结果沉淀为可追踪资产。
           </Paragraph>
-          <Space size="large" className="hero-actions">
-            <Link to="/workspace">
+
+          <Space wrap size={12} className="marketing-cta-row">
+            <Link to="/workspace/tasks">
               <Button type="primary" size="large" icon={<PlayCircleOutlined />}>
-                开始使用
+                立即体验
               </Button>
             </Link>
-            <Link to="/settings">
-              <Button size="large" icon={<ToolOutlined />}>
-                配置系统
+            <Link to="/docs">
+              <Button size="large" icon={<ArrowRightOutlined />}>
+                查看对接方式
               </Button>
             </Link>
           </Space>
 
-          {/* 状态提示 */}
-          <div className="hero-status">
-            <Space size="large">
-              <Tag
-                icon={config.llm.enabled ? <CheckCircleOutlined /> : <ApiOutlined />}
-                color={config.llm.enabled ? "success" : "default"}
-                style={{ fontSize: 14, padding: "4px 12px" }}
-              >
-                AI 功能: {config.llm.enabled ? "已启用" : "未启用"}
-              </Tag>
-              <Tag
-                icon={config.githubToken ? <CheckCircleOutlined /> : <GithubOutlined />}
-                color={config.githubToken ? "success" : "default"}
-                style={{ fontSize: 14, padding: "4px 12px" }}
-              >
-                GitHub: {config.githubToken ? "已配置" : "未配置"}
-              </Tag>
-              {caps && (
-                <Tag color="processing" style={{ fontSize: 14, padding: "4px 12px" }}>
-                  <DashboardOutlined /> {caps.framework}
-                </Tag>
-              )}
-            </Space>
+          <Space wrap size={[8, 10]} className="marketing-status-tags">
+            <Tag color={caps?.llm?.enabled ? "success" : "default"}>{llmBadge}</Tag>
+            <Tag color={config.githubToken ? "success" : "default"}>
+              GitHub Token: {config.githubToken ? "已配置" : "未配置"}
+            </Tag>
+            {caps?.framework && <Tag color="processing">{caps.framework}</Tag>}
+            {mcpSseEnabled && <Tag color="blue">MCP SSE 已启用</Tag>}
+          </Space>
+
+          <div className="marketing-highlight-line">
+            <span>解决真实问题</span>
+            <span>自动化执行</span>
+            <span>结果可追踪</span>
+            <span>能力可扩展</span>
           </div>
         </div>
       </section>
 
-      {/* 统计数据 */}
-      <section className="stats-section">
-        <Row gutter={[24, 24]} justify="center">
-          {stats.map((stat, index) => (
-            <Col key={index} xs={12} sm={6} md={3}>
-              <Card className="stat-card" bordered={false}>
-                <Statistic
-                  value={stat.value}
-                  suffix={stat.suffix}
-                  valueStyle={{
-                    fontSize: 36,
-                    fontWeight: 700,
-                    color: "#22c55e",
-                    fontFamily: '"DIN Alternate", "PingFang SC", sans-serif'
-                  }}
-                />
-                <Text type="secondary" style={{ fontSize: 14 }}>{stat.label}</Text>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      </section>
-
-      {/* 核心功能 */}
-      <section className="features-section">
-        <div className="section-header">
-          <Title level={2}>
-            <RocketOutlined /> 核心功能
-          </Title>
-          <Paragraph type="secondary">全流程自动化，让拼写检查不再繁琐</Paragraph>
-        </div>
-
-        <Row gutter={[24, 24]}>
-          {features.map((feature, index) => (
-            <Col key={index} xs={24} sm={12} md={8}>
-              <Card className="feature-card" hoverable>
-                <div className="feature-icon" style={{ color: feature.color }}>
-                  {feature.icon}
-                </div>
-                <Title level={4} style={{ margin: "16px 0 8px" }}>
-                  {feature.title}
-                </Title>
-                <Paragraph type="secondary">{feature.desc}</Paragraph>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      </section>
-
-      {/* 工作流程 */}
-      <section className="workflow-section">
-        <div className="section-header">
-          <Title level={2}>
-            <BranchesOutlined /> 工作流程
-          </Title>
-          <Paragraph type="secondary">五步完成从发现到修复的完整流程</Paragraph>
-        </div>
-
-        <Card className="workflow-card">
-          <Steps direction="horizontal" current={-1} size="default">
-            {workflowSteps.map((step, index) => (
-              <Step
-                key={index}
-                title={step.title}
-                description={step.desc}
-                icon={
-                  <Avatar
-                    size="large"
-                    style={{
-                      background: index === 0 ? "#22c55e" : "#e5e7eb",
-                      color: index === 0 ? "#fff" : "#9ca3af"
-                    }}
-                  >
-                    {index + 1}
-                  </Avatar>
-                }
-              />
-            ))}
-          </Steps>
-
-          <Divider />
-
-          <Row gutter={[48, 24]} align="middle">
-            <Col xs={24} md={12}>
-              <Title level={4}>自动化流水线</Title>
-              <Paragraph>
-                系统采用 LangGraph 构建工作流，每个步骤都可以独立运行，
-                也可以串联成完整的自动化流程。支持断点续传和状态持久化。
-              </Paragraph>
-              <List
-                size="small"
-                split={false}
-                dataSource={[
-                  "支持批量处理多个仓库",
-                  "可配置扫描范围和规则",
-                  "智能错误分级和过滤",
-                  "自动决策是否创建 PR",
-                ]}
-                renderItem={(item) => (
-                  <List.Item>
-                    <CheckCircleOutlined style={{ color: "#22c55e", marginRight: 8 }} />
-                    {item}
-                  </List.Item>
-                )}
-              />
-            </Col>
-            <Col xs={24} md={12}>
-              <div className="workflow-diagram">
-                <img
-                  src="/workflow.svg"
-                  alt="Workflow"
-                  style={{ width: "100%", maxWidth: 400 }}
-                />
-              </div>
-            </Col>
-          </Row>
-        </Card>
-      </section>
-
-      {/* 支持的语言 */}
-      <section className="languages-section">
-        <div className="section-header">
-          <Title level={2}>
-            <CodeOutlined /> 支持的语言
-          </Title>
-          <Paragraph type="secondary">覆盖主流编程语言和文档格式</Paragraph>
-        </div>
-
-        <Card className="languages-card">
-          <Row gutter={[16, 16]}>
-            {languages.map((lang, index) => (
-              <Col key={index} xs={12} sm={6} md={3}>
-                <div className="language-item">
-                  <Avatar
-                    size={48}
-                    style={{
-                      background: lang.color,
-                      color: "#fff",
-                      fontSize: 14,
-                      fontWeight: 600
-                    }}
-                  >
-                    {lang.ext.slice(1)}
-                  </Avatar>
-                  <Text strong style={{ marginTop: 8, display: "block" }}>
-                    {lang.name}
-                  </Text>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {lang.ext}
-                  </Text>
-                </div>
-              </Col>
-            ))}
-          </Row>
-          <Divider />
-          <Text type="secondary" style={{ textAlign: "center", display: "block" }}>
-            以及 Markdown、Text、RST、AsciiDoc 等文档格式
-          </Text>
-        </Card>
-      </section>
-
-      {/* 技术特点 */}
-      <section className="tech-section">
-        <div className="section-header">
-          <Title level={2}>
-            <ToolOutlined /> 技术特点
-          </Title>
-        </div>
-
-        <Row gutter={[24, 24]}>
-          <Col xs={24} md={8}>
-            <Card className="tech-card">
-              <Title level={4}>
-                <ApiOutlined /> AI 驱动
-              </Title>
-              <Paragraph>
-                支持 OpenAI、Claude 等大模型 API，智能识别专业术语，
-                避免误报，提供上下文感知的修复建议。
-              </Paragraph>
-            </Card>
-          </Col>
-          <Col xs={24} md={8}>
-            <Card className="tech-card">
-              <Title level={4}>
-                <GlobalOutlined /> Web3 友好
-              </Title>
-              <Paragraph>
-                内置 Web3 专业术语词典，智能识别 Solidity 关键词、
-                区块链术语，减少误报率。
-              </Paragraph>
-            </Card>
-          </Col>
-          <Col xs={24} md={8}>
-            <Card className="tech-card">
-              <Title level={4}>
-                <TeamOutlined /> 开源协作
-              </Title>
-              <Paragraph>
-                自动生成标准化的 PR，包含详细的修改说明和影响分析，
-                方便项目维护者审阅。
-              </Paragraph>
-            </Card>
-          </Col>
-        </Row>
-      </section>
-
-      {/* 使用场景 */}
-      <section className="scenarios-section">
-        <div className="section-header">
-          <Title level={2}>
-            <DashboardOutlined /> 使用场景
-          </Title>
-        </div>
-
-        <Row gutter={[24, 24]}>
-          {[
-            {
-              title: "开源项目维护",
-              desc: "定期检查文档和注释中的拼写错误，提升项目专业度",
-              icon: <GithubOutlined />,
-            },
-            {
-              title: "技术文档编写",
-              desc: "在发布前扫描技术文档，确保专业术语拼写正确",
-              icon: <FileTextOutlined />,
-            },
-            {
-              title: "代码审查辅助",
-              desc: "作为 CI/CD 流程的一部分，自动检测拼写问题",
-              icon: <SafetyOutlined />,
-            },
-            {
-              title: "多语言本地化",
-              desc: "检查多语言资源文件，确保翻译质量和拼写正确",
-              icon: <GlobalOutlined />,
-            },
-          ].map((scenario, index) => (
-            <Col key={index} xs={24} sm={12}>
-              <Card className="scenario-card" hoverable>
-                <div className="scenario-icon" style={{ color: "#22c55e" }}>
-                  {scenario.icon}
-                </div>
-                <Title level={4}>{scenario.title}</Title>
-                <Paragraph type="secondary">{scenario.desc}</Paragraph>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      </section>
-
-      {/* CTA 区域 */}
-      <section className="cta-section">
-        <Card className="cta-card" bordered={false}>
-          <Title level={2}>
-            <TrophyOutlined /> 开始使用
-          </Title>
-          <Paragraph style={{ fontSize: 16, marginBottom: 24 }}>
-            配置您的 GitHub Token 和大模型 API，开启智能拼写检查之旅
+      <section className="marketing-proof">
+        <div className="marketing-section-head">
+          <Title level={2}>解决得如何</Title>
+          <Paragraph type="secondary">
+            下面这些指标来自当前实例的实时能力数据，用来证明系统不仅能做，而且已经在做。
           </Paragraph>
-          <Space size="large">
+        </div>
+
+        {capsError && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 14 }}
+            message="能力数据加载失败"
+            description={capsError}
+          />
+        )}
+
+        <Row gutter={[14, 14]}>
+          {metricCards.map((metric) => (
+            <Col key={metric.key} xs={12} md={6}>
+              <Card className="marketing-metric-card">
+                <Text type="secondary">{metric.label}</Text>
+                <div className="marketing-metric-value">{metric.value}</div>
+                <Text type="secondary" className="marketing-metric-hint">
+                  {metric.hint}
+                </Text>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </section>
+
+      <section className="marketing-section marketing-section-alt">
+        <div className="marketing-section-head">
+          <Title level={2}>我们解决哪些问题</Title>
+        </div>
+        <Row gutter={[14, 14]}>
+          {valueProps.map((item) => (
+            <Col key={item.title} xs={24} md={8}>
+              <Card className="marketing-value-card">
+                <div className="marketing-value-icon">{item.icon}</div>
+                <Title level={4}>{item.title}</Title>
+                <Paragraph type="secondary">{item.desc}</Paragraph>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </section>
+
+      <section className="marketing-section">
+        <div className="marketing-section-head">
+          <Title level={2}>我们怎么解决</Title>
+          <Paragraph type="secondary">
+            通过“发现 → 分析 → 修复 → 决策 → 报告”的链路，把质量治理变成稳定可重复的流程。
+          </Paragraph>
+        </div>
+
+        <Row gutter={[14, 14]}>
+          {capabilityCards.map((item) => (
+            <Col key={item.key} xs={24} sm={12} lg={8}>
+              <Card className="marketing-capability-card" hoverable>
+                <div className="marketing-capability-icon">{item.icon}</div>
+                <Title level={4}>{item.title}</Title>
+                <Paragraph type="secondary">{item.description}</Paragraph>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+
+        {caps?.pipeline_nodes && caps.pipeline_nodes.length > 0 && (
+          <div className="marketing-node-strip">
+            {caps.pipeline_nodes.map((node) => (
+              <Tag key={node} color="geekblue">
+                {node}
+              </Tag>
+            ))}
+          </div>
+        )}
+
+        {caps?.limitations && caps.limitations.length > 0 && (
+          <Alert
+            style={{ marginTop: 12 }}
+            type="info"
+            showIcon
+            message="运行注意事项"
+            description={
+              <ul className="marketing-limit-list">
+                {caps.limitations.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            }
+          />
+        )}
+      </section>
+
+      <section className="marketing-section marketing-section-alt">
+        <div className="marketing-section-head">
+          <Title level={2}>适用场景</Title>
+        </div>
+        <Row gutter={[14, 14]}>
+          {useCases.map((item) => (
+            <Col key={item.title} xs={24} md={8}>
+              <Card className="marketing-usecase-card">
+                <Space size={8} className="marketing-usecase-title">
+                  {item.icon}
+                  <Text strong>{item.title}</Text>
+                </Space>
+                <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                  {item.desc}
+                </Paragraph>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </section>
+
+      <section className="marketing-section">
+        <div className="marketing-section-head">
+          <Title level={2}>3 步启动流程</Title>
+        </div>
+        <Card className="marketing-steps-card">
+          <Steps
+            direction="vertical"
+            current={-1}
+            items={activationSteps.map((step) => ({
+              title: step.title,
+              description: step.description,
+              icon: <CheckCircleOutlined />,
+            }))}
+          />
+        </Card>
+      </section>
+
+      <section className="marketing-section marketing-section-alt">
+        <div className="marketing-section-head">
+          <Title level={2}>集成与治理能力</Title>
+        </div>
+        <Row gutter={[14, 14]}>
+          {integrationCards.map((item) => (
+            <Col key={item.title} xs={24} md={8}>
+              <Card className="marketing-integration-card">
+                <Space size={8}>
+                  {item.icon}
+                  <Text strong>{item.title}</Text>
+                </Space>
+                <Paragraph type="secondary" style={{ marginTop: 10, marginBottom: 0 }}>
+                  {item.detail}
+                </Paragraph>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </section>
+
+      <section className="marketing-final-cta">
+        <Card className="marketing-final-card">
+          <Title level={3}>准备好把质量治理流程自动化了吗？</Title>
+          <Paragraph>
+            先完成设置，再跑一个公开仓库，你就能直观看到：问题是怎么被发现、怎么被修复、结果如何呈现的。
+          </Paragraph>
+          <Space wrap size={12}>
             <Link to="/settings">
-              <Button type="primary" size="large" icon={<ToolOutlined />}>
-                立即配置
+              <Button type="primary" icon={<SettingOutlined />}>
+                先完成配置
               </Button>
             </Link>
-            <Link to="/workspace">
-              <Button size="large" icon={<ArrowRightOutlined />}>
-                进入工作台
-              </Button>
+            <Link to="/workspace/tasks">
+              <Button icon={<RocketOutlined />}>运行首个任务</Button>
+            </Link>
+            <Link to="/workspace/skills">
+              <Button icon={<ToolOutlined />}>查看技能库</Button>
             </Link>
           </Space>
         </Card>
