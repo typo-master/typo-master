@@ -824,13 +824,19 @@ body {
   gap: 18px;
   --marketing-text-main: #0f3d23;
   --marketing-text-sub: #14532d;
-  --marketing-border: #4ade80;
+  --marketing-border: transparent;
   --marketing-bg-soft: #ffffff;
 }
 
+.home-page-marketing .ant-card {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
 .home-page-marketing section {
-  border: 1px solid var(--marketing-border);
-  border-radius: 4px;
+  border: none;
+  border-radius: 0;
   overflow: hidden;
   background: transparent;
 }
@@ -865,7 +871,7 @@ body {
 
 .marketing-badge {
   margin-bottom: 14px;
-  border: 1px solid #22c55e !important;
+  border: none;
   border-radius: 4px;
   font-weight: 600;
   padding: 2px 12px;
@@ -896,7 +902,7 @@ body {
 .marketing-status-tags .ant-tag {
   border-radius: 4px;
   padding: 2px 10px;
-  border: 1px solid #22c55e;
+  border: none;
   background: transparent;
   color: #14532d;
   font-weight: 600;
@@ -916,7 +922,7 @@ body {
   border-radius: 4px;
   color: #ecfdf5;
   background: rgba(21, 128, 61, 0.88);
-  border: 1px solid #a7f3d0;
+  border: none;
 }
 
 .marketing-proof,
@@ -946,8 +952,8 @@ body {
 }
 
 .marketing-metric-card {
-  border: 1px solid var(--marketing-border);
-  border-radius: 4px;
+  border: none;
+  border-radius: 0;
   background: transparent;
   height: 100%;
 }
@@ -970,16 +976,16 @@ body {
 .marketing-capability-card,
 .marketing-usecase-card,
 .marketing-integration-card {
-  border: 1px solid var(--marketing-border);
-  border-radius: 4px;
+  border: none;
+  border-radius: 0;
   background: transparent;
   height: 100%;
 }
 
 .marketing-capability-card:hover {
-  border-color: #16a34a;
+  border-color: transparent;
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(22, 163, 74, 0.24);
+  box-shadow: none;
 }
 
 .marketing-value-icon,
@@ -1025,8 +1031,8 @@ body {
 }
 
 .marketing-steps-card {
-  border: 1px solid #86efac;
-  border-radius: 4px;
+  border: none;
+  border-radius: 0;
   background: transparent;
 }
 
@@ -1061,8 +1067,8 @@ body {
 
 .marketing-final-card {
   margin: 20px;
-  border: 1px solid #6ee7b7;
-  border-radius: 4px;
+  border: none;
+  border-radius: 0;
   background: transparent;
 }
 
