@@ -2,8 +2,8 @@
   --bg-main: #f0fdf4;
   --bg-surface: #ffffff;
   --line: #bbf7d0;
-  --text-main: #1a1a2e;
-  --text-sub: #5a6c7d;
+  --text-main: #14532d;
+  --text-sub: #166534;
   --accent: #22c55e;
   --accent-secondary: #16a34a;
   --success: #52c41a;
@@ -34,11 +34,11 @@ body {
   z-index: 1000;
   height: 64px;
   padding: 0 24px;
-  background: #22c55e;
+  background: linear-gradient(135deg, #166534 0%, #15803d 58%, #16a34a 100%);
   display: flex;
   align-items: center;
   gap: 24px;
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2);
+  box-shadow: 0 2px 10px rgba(21, 128, 61, 0.3);
 }
 
 .header-brand {
@@ -61,7 +61,7 @@ body {
 }
 
 .brand-subtitle {
-  color: rgba(255,255,255,0.8);
+  color: #ecfdf5;
   font-size: 11px;
 }
 
@@ -71,7 +71,7 @@ body {
 }
 
 .main-menu .ant-menu-item {
-  color: rgba(255,255,255,0.85) !important;
+  color: #ecfdf5 !important;
   font-size: 14px;
   height: 64px;
   line-height: 64px;
@@ -82,12 +82,12 @@ body {
 
 .main-menu .ant-menu-item:hover {
   color: #fff !important;
-  background: rgba(255,255,255,0.1) !important;
+  background: rgba(236,253,245,0.22) !important;
 }
 
 .main-menu .ant-menu-item-selected {
   color: #fff !important;
-  background: rgba(255,255,255,0.15) !important;
+  background: rgba(236,253,245,0.32) !important;
   font-weight: 600;
 }
 
@@ -117,6 +117,10 @@ body {
   padding: 16px;
   background: #fff;
   border-top: 1px solid var(--line);
+}
+
+.main-footer .ant-typography.ant-typography-secondary {
+  color: #166534 !important;
 }
 
 /* 页面容器 */
@@ -818,29 +822,36 @@ body {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  --marketing-text-main: #0f3d23;
+  --marketing-text-sub: #14532d;
+  --marketing-border: #4ade80;
+  --marketing-bg-soft: #ffffff;
 }
 
 .home-page-marketing section {
-  border: 1px solid var(--line);
-  border-radius: 18px;
+  border: 1px solid var(--marketing-border);
+  border-radius: 4px;
   overflow: hidden;
-  background: #fff;
+  background: transparent;
 }
 
-.marketing-hero {
+.home-page-marketing section.marketing-hero {
   position: relative;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
   border: none !important;
   background:
-    radial-gradient(circle at 12% 20%, rgba(74, 222, 128, 0.22), transparent 36%),
-    radial-gradient(circle at 88% 0%, rgba(16, 185, 129, 0.2), transparent 38%),
-    linear-gradient(130deg, #052e16 0%, #14532d 45%, #134e4a 100%);
+    radial-gradient(circle at 12% 20%, rgba(74, 222, 128, 0.3), transparent 38%),
+    radial-gradient(circle at 88% 0%, rgba(34, 197, 94, 0.26), transparent 40%),
+    linear-gradient(130deg, #022c18 0%, #14532d 46%, #115e3a 100%);
 }
 
 .marketing-hero-glow {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(0deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.03));
+  background: linear-gradient(0deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.06));
 }
 
 .marketing-hero-inner {
@@ -849,19 +860,21 @@ body {
   max-width: 980px;
   margin: 0 auto;
   padding: 52px 34px 44px;
-  color: #ecfdf5;
+  color: #ffffff;
 }
 
 .marketing-badge {
   margin-bottom: 14px;
-  border: none;
-  border-radius: 999px;
+  border: 1px solid #22c55e !important;
+  border-radius: 4px;
   font-weight: 600;
   padding: 2px 12px;
+  color: #14532d !important;
+  background: transparent !important;
 }
 
 .marketing-title {
-  color: #f0fdf4 !important;
+  color: #ffffff !important;
   font-size: 46px !important;
   line-height: 1.15 !important;
   margin-bottom: 14px !important;
@@ -869,7 +882,7 @@ body {
 }
 
 .marketing-subtitle {
-  color: rgba(236, 253, 245, 0.9);
+  color: #dcfce7;
   font-size: 17px !important;
   line-height: 1.8;
   max-width: 820px;
@@ -881,8 +894,12 @@ body {
 }
 
 .marketing-status-tags .ant-tag {
-  border-radius: 999px;
+  border-radius: 4px;
   padding: 2px 10px;
+  border: 1px solid #22c55e;
+  background: transparent;
+  color: #14532d;
+  font-weight: 600;
 }
 
 .marketing-highlight-line {
@@ -896,9 +913,10 @@ body {
   font-size: 12px;
   line-height: 1;
   padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(236, 253, 245, 0.12);
-  border: 1px solid rgba(236, 253, 245, 0.2);
+  border-radius: 4px;
+  color: #ecfdf5;
+  background: rgba(21, 128, 61, 0.88);
+  border: 1px solid #a7f3d0;
 }
 
 .marketing-proof,
@@ -906,8 +924,16 @@ body {
   padding: 24px;
 }
 
-.marketing-section-alt {
-  background: linear-gradient(180deg, #ffffff 0%, #f7fff9 100%);
+.home-page-marketing section:not(.marketing-hero) .ant-typography {
+  color: var(--marketing-text-main);
+}
+
+.home-page-marketing section:not(.marketing-hero) .ant-typography.ant-typography-secondary {
+  color: var(--marketing-text-sub) !important;
+}
+
+.home-page-marketing section.marketing-section-alt {
+  background: transparent;
 }
 
 .marketing-section-head {
@@ -916,13 +942,13 @@ body {
 
 .marketing-section-head h2 {
   margin-bottom: 6px !important;
-  color: #14532d;
+  color: var(--marketing-text-main);
 }
 
 .marketing-metric-card {
-  border: 1px solid #dcfce7;
-  border-radius: 12px;
-  background: #fbfffc;
+  border: 1px solid var(--marketing-border);
+  border-radius: 4px;
+  background: transparent;
   height: 100%;
 }
 
@@ -932,44 +958,47 @@ body {
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1;
-  color: #166534;
+  color: var(--marketing-text-main);
 }
 
 .marketing-metric-hint {
   font-size: 12px;
+  color: var(--marketing-text-sub) !important;
 }
 
 .marketing-value-card,
 .marketing-capability-card,
 .marketing-usecase-card,
 .marketing-integration-card {
-  border: 1px solid #dcfce7;
-  border-radius: 12px;
+  border: 1px solid var(--marketing-border);
+  border-radius: 4px;
+  background: transparent;
   height: 100%;
 }
 
 .marketing-capability-card:hover {
-  border-color: #86efac;
+  border-color: #16a34a;
   transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(22, 163, 74, 0.24);
 }
 
 .marketing-value-icon,
 .marketing-capability-icon {
   width: 46px;
   height: 46px;
-  border-radius: 11px;
+  border-radius: 4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #dcfce7;
-  color: #166534;
+  background: transparent;
+  color: #14532d;
   font-size: 20px;
   margin-bottom: 10px;
 }
 
 .marketing-usecase-title .anticon,
 .marketing-integration-card .anticon {
-  color: #166534;
+  color: #14532d;
 }
 
 .marketing-node-strip {
@@ -977,6 +1006,13 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.marketing-node-strip .ant-tag {
+  border-color: #16a34a;
+  background: #bbf7d0;
+  color: #0f3d23;
+  font-weight: 600;
 }
 
 .marketing-limit-list {
@@ -989,30 +1025,61 @@ body {
 }
 
 .marketing-steps-card {
-  border: 1px solid #dcfce7;
-  border-radius: 12px;
+  border: 1px solid #86efac;
+  border-radius: 4px;
+  background: transparent;
 }
 
 .marketing-steps-card .ant-steps-item-icon {
-  background: #ecfdf5;
-  border-color: #86efac;
+  background: #dcfce7;
+  border-color: #4ade80;
 }
 
 .marketing-steps-card .ant-steps-item-title {
   font-weight: 600;
+  color: #14532d !important;
 }
 
-.marketing-final-cta {
+.marketing-steps-card .ant-steps-item-description {
+  color: #14532d !important;
+}
+
+.marketing-steps-card .ant-steps-item-icon > .ant-steps-icon {
+  color: #15803d !important;
+}
+
+.marketing-steps-card .ant-steps-item-tail::after {
+  background: #86efac !important;
+}
+
+.home-page-marketing section.marketing-final-cta {
   border: none !important;
-  background: linear-gradient(120deg, #ecfdf3 0%, #d1fae5 100%);
+  background: transparent;
   box-shadow: none !important;
   padding: 0;
 }
 
 .marketing-final-card {
   margin: 20px;
-  border: 1px solid #a7f3d0;
-  border-radius: 16px;
+  border: 1px solid #6ee7b7;
+  border-radius: 4px;
+  background: transparent;
+}
+
+.marketing-final-card .ant-typography {
+  color: var(--marketing-text-main);
+}
+
+.marketing-final-card .ant-btn-default {
+  border-color: #16a34a;
+  color: #14532d;
+  font-weight: 500;
+}
+
+.marketing-final-card .ant-btn-default:hover {
+  border-color: #15803d !important;
+  color: #14532d !important;
+  background: #dcfce7 !important;
 }
 
 @media (max-width: 992px) {
@@ -1060,4 +1127,3 @@ body {
     margin: 12px;
   }
 }
-
