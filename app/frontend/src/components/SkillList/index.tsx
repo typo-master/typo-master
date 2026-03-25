@@ -43,6 +43,9 @@ import {
   listSkills as listSkillsApi,
   upsertSkill as upsertSkillApi,
 } from "../../api";
+import { useSkillFilter } from "./hooks/useSkillFilter";
+import SkillFilterBar from "./components/SkillFilterBar";
+import EmptyResult from "./components/EmptyResult";
 
 const { Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -627,12 +630,45 @@ export default function SkillList({ onSkillClick, showDisabled = true }: SkillLi
     void loadSkills();
   }, []);
 
-  const filteredSkills = useMemo(
-    () => (showDisabled ? skills : skills.filter((skill) => skill.enabled)),
-    [showDisabled, skills]
-  );
+  // 使用筛选 Hook，根据 showDisabled 设置初始状态
+  const {
+    filter,
+    filteredSkills,
+    counts,
+    hasActiveFilters,
+    clearFilters,
+    setKeyword,
+    setStatus,
+    toggleCategory,
+    toggleSource,
+    toggleTag,
+    removeCategory,
+    removeSource,
+    removeTag,
+  } = useSkillFilter(skills, showDisabled);
+
+  // 获取所有分类和来源（用于筛选下拉）
+  const allCategories = useMemo(() => {
+    return Object.keys(groupedSkills);
+  }, [groupedSkills]);
+
+  const allSources = useMemo(() => {
+    const sources = new Set<string>();
+    skills.forEach(s => sources.add(s.source || 'default'));
+    return Array.from(sources);
+  }, [skills]);
 
   const groupedSkills = useMemo(() => {
+    return skills.reduce((acc, skill) => {
+      const category = skill.category || "default";
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(skill);
+      return acc;
+    }, {} as Record<string, AgentSkill[]>);
+  }, [skills]);
+
+  // 基于筛选后的 skills 进行分组
+  const groupedFilteredSkills = useMemo(() => {
     return filteredSkills.reduce((acc, skill) => {
       const category = skill.category || "default";
       if (!acc[category]) acc[category] = [];
@@ -963,10 +999,27 @@ export default function SkillList({ onSkillClick, showDisabled = true }: SkillLi
         />
       </Card>
 
-      {skills.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无可用 Skill" />
+      {/* 筛选栏 */}
+      <SkillFilterBar
+        filter={filter}
+        counts={counts}
+        hasActiveFilters={hasActiveFilters}
+        allCategories={allCategories}
+        allSources={allSources}
+        onKeywordChange={setKeyword}
+        onStatusChange={setStatus}
+        onCategoryToggle={toggleCategory}
+        onSourceToggle={toggleSource}
+        onClearFilters={clearFilters}
+        onRemoveCategory={removeCategory}
+        onRemoveSource={removeSource}
+        onRemoveTag={removeTag}
+      />
+
+      {filteredSkills.length === 0 ? (
+        <EmptyResult onClearFilters={clearFilters} />
       ) : (
-        Object.entries(groupedSkills).map(([category, categorySkills]) => {
+        Object.entries(groupedFilteredSkills).map(([category, categorySkills]) => {
           const categoryMeta = CATEGORY_META[category] || CATEGORY_META.default;
 
           return (

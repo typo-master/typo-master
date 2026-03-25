@@ -24,8 +24,14 @@ export interface UseSkillFilterReturn {
   removeTag: (tag: string) => void;
 }
 
-export function useSkillFilter(skills: AgentSkill[]): UseSkillFilterReturn {
-  const [filter, setFilter] = useState<SkillFilterState>(defaultFilterState);
+export function useSkillFilter(skills: AgentSkill[], showDisabled: boolean = true): UseSkillFilterReturn {
+  // 根据 showDisabled 设置初始状态
+  const initialState: SkillFilterState = {
+    ...defaultFilterState,
+    status: showDisabled ? 'all' : 'enabled',
+  };
+
+  const [filter, setFilter] = useState<SkillFilterState>(initialState);
 
   // 筛选结果（带缓存）
   const filteredSkills = useMemo(() => {
