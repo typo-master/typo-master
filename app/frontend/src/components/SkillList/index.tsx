@@ -648,6 +648,15 @@ export default function SkillList({ onSkillClick, showDisabled = true }: SkillLi
   } = useSkillFilter(skills, showDisabled);
 
   // 获取所有分类和来源（用于筛选下拉）
+  const groupedSkills = useMemo(() => {
+    return skills.reduce((acc, skill) => {
+      const category = skill.category || "default";
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(skill);
+      return acc;
+    }, {} as Record<string, AgentSkill[]>);
+  }, [skills]);
+
   const allCategories = useMemo(() => {
     return Object.keys(groupedSkills);
   }, [groupedSkills]);
@@ -656,15 +665,6 @@ export default function SkillList({ onSkillClick, showDisabled = true }: SkillLi
     const sources = new Set<string>();
     skills.forEach(s => sources.add(s.source || 'default'));
     return Array.from(sources);
-  }, [skills]);
-
-  const groupedSkills = useMemo(() => {
-    return skills.reduce((acc, skill) => {
-      const category = skill.category || "default";
-      if (!acc[category]) acc[category] = [];
-      acc[category].push(skill);
-      return acc;
-    }, {} as Record<string, AgentSkill[]>);
   }, [skills]);
 
   // 基于筛选后的 skills 进行分组
