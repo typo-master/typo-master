@@ -1,5 +1,5 @@
 """
-TypeMaster agent runtime package.
+Typo Master agent runtime package.
 """
 
 from .runtime import TypeAgentRuntime, WorkflowRunRequest, agent_runtime

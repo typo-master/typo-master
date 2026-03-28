@@ -111,6 +111,16 @@ python web3_typo_hunter_cli.py llm-check
 python3 app/backend/run.py
 ```
 
+后端会话与工作流任务存储使用本地 MySQL。默认连接参数如下（服务启动时会自动建库建表）：
+
+```bash
+export MYSQL_HOST=127.0.0.1
+export MYSQL_PORT=3306
+export MYSQL_USER=root
+export MYSQL_PASSWORD=nopasswd
+export MYSQL_DATABASE=typomaster
+```
+
 启动前端：
 
 ```bash

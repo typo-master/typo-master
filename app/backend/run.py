@@ -1,5 +1,5 @@
 """
-Development entrypoint for TypeMaster backend server.
+Development entrypoint for Typo Master backend server.
 """
 
 import uvicorn

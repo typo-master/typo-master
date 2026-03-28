@@ -39,7 +39,7 @@ class MCPAgentAdapter:
     """
     Agent 的 MCP 适配器
 
-    将 TypeMaster Agent 的能力（Skills、Tools、Workflows）暴露为 MCP Tools，
+    将 Typo Master Agent 的能力（Skills、Tools、Workflows）暴露为 MCP Tools，
     支持外部 MCP 客户端通过 SSE 连接调用。
     """
 
@@ -260,7 +260,7 @@ class MCPAgentAdapter:
             "name": "typoagent-mcp-server",
             "version": "1.0.0",
             "display_name": "TypoAgent MCP Server",
-            "description": "TypeMaster Agent 的 MCP 服务端，支持通过 SSE 连接调用 Agent 能力",
+            "description": "Typo Master Agent 的 MCP 服务端，支持通过 SSE 连接调用 Agent 能力",
             "capabilities": {
                 "tools": {
                     "listChanged": True

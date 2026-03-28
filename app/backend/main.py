@@ -1,5 +1,5 @@
 """
-TypeMaster Backend API Server
+Typo Master Backend API Server
 
 Product-facing API for conversation, capabilities, and agent workflow control.
 """
@@ -11,9 +11,14 @@ from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.agent.runtime import WorkflowRunRequest, agent_runtime
+from app.backend.storage import (
+    ConversationNotFoundError,
+    MySQLStorage,
+    WorkflowTaskNotFoundError,
+)
 
 # MCP SSE Server
 _mcp_router: Optional[Any] = None
@@ -59,9 +64,9 @@ class RunWorkflowRequest(BaseModel):
     create_pr: bool = False
     owner: Optional[str] = None
     repo: Optional[str] = None
-    days: int = 30
-    min_stars: int = 100
-    limit: int = 5
+    days: int = Field(default=30, ge=1, description="Number of days must be at least 1")
+    min_stars: int = Field(default=100, ge=0, description="Minimum stars must be non-negative")
+    limit: int = Field(default=5, ge=1, le=100, description="Limit must be between 1 and 100")
 
 
 class WorkflowTaskResponse(BaseModel):
@@ -74,10 +79,22 @@ class WorkflowTaskResponse(BaseModel):
 
 
 class SkillExecuteRequest(BaseModel):
-    skill_name: str = Field(min_length=1)
+    skill_name: str = Field(min_length=1, max_length=256, description="Skill name must be between 1 and 256 characters")
     params: Dict[str, Any] = Field(default_factory=dict)
     skill: Optional[Dict[str, Any]] = None
     conversation_id: str = ""
+
+    @field_validator('skill_name')
+    @classmethod
+    def validate_skill_name(cls, v: str) -> str:
+        """Validate skill name doesn't contain dangerous characters."""
+        # Check for potential script injection
+        if '<' in v or '>' in v:
+            raise ValueError('skill_name cannot contain angle brackets')
+        # Check for command injection patterns
+        if ';' in v and ('rm' in v.lower() or 'drop' in v.lower() or 'delete' in v.lower()):
+            raise ValueError('skill_name contains potentially dangerous characters')
+        return v
 
 
 class SkillExecuteResponse(BaseModel):
@@ -109,28 +126,38 @@ class MCPCatalogInstallRequest(BaseModel):
 
 
 class SQLExecuteRequest(BaseModel):
-    database: str = Field(min_length=1)
+    database: str = Field(min_length=1, max_length=256)
     query: str = Field(min_length=1)
     args: List[Any] = Field(default_factory=list)
     read_only: bool = True
-    max_rows: int = 200
+    max_rows: int = Field(default=200, ge=1, le=10000)
+
+    @field_validator('database')
+    @classmethod
+    def validate_database_name(cls, v: str) -> str:
+        """Validate database name doesn't contain dangerous characters."""
+        import re
+        # Check for path traversal
+        if '..' in v or '/' in v or '\\' in v:
+            raise ValueError('database name cannot contain path characters')
+        # Check for SQL injection patterns
+        if ';' in v or '--' in v or '/*' in v:
+            raise ValueError('database name cannot contain SQL special characters')
+        # Check for HTML/script tags
+        if '<' in v or '>' in v:
+            raise ValueError('database name cannot contain angle brackets')
+        # Check for valid database name characters (alphanumeric, underscore, hyphen)
+        if not re.match(r'^[a-zA-Z0-9_-]+$', v):
+            raise ValueError('database name can only contain letters, numbers, underscores, and hyphens')
+        return v
 
 
 class PermissionsUpdateRequest(BaseModel):
     permissions: Dict[str, Any] = Field(default_factory=dict)
 
 
-class WorkflowTaskState:
-    def __init__(self) -> None:
-        self.status: str = "queued"
-        self.created_at: str = utc_now_iso()
-        self.updated_at: str = self.created_at
-        self.result: Optional[Dict[str, Any]] = None
-        self.error: Optional[str] = None
-
-
 app = FastAPI(
-    title="TypeMaster API",
+    title="Typo Master API",
     version="0.2.0",
     description="Conversation + Agent control API",
 )
@@ -144,14 +171,14 @@ app.add_middleware(
 )
 
 
-_conversations: Dict[str, List[ChatMessageRecord]] = {}
-_workflow_tasks: Dict[str, WorkflowTaskState] = {}
+_storage = MySQLStorage.from_env()
 _task_lock = asyncio.Lock()
 
 
 @app.on_event("startup")
 async def startup_event() -> None:
     global _mcp_router
+    await asyncio.to_thread(_storage.initialize)
     await agent_runtime.initialize()
     # Initialize MCP SSE Server
     try:
@@ -174,7 +201,7 @@ async def shutdown_event() -> None:
 
 @app.get("/api/v1/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
-    return HealthResponse(ok=True, service="typemaster-backend", timestamp=utc_now_iso())
+    return HealthResponse(ok=True, service="typomaster-backend", timestamp=utc_now_iso())
 
 
 @app.get("/api/v1/capabilities")
@@ -296,21 +323,22 @@ async def update_permissions(request: PermissionsUpdateRequest) -> Dict[str, Any
 @app.post("/api/v1/conversations", response_model=ConversationCreateResponse)
 async def create_conversation() -> ConversationCreateResponse:
     conversation_id = str(uuid.uuid4())
-    _conversations[conversation_id] = []
+    created_at = utc_now_iso()
+    await asyncio.to_thread(_storage.create_conversation, conversation_id, created_at)
     return ConversationCreateResponse(
         conversation_id=conversation_id,
-        created_at=utc_now_iso(),
+        created_at=created_at,
     )
 
 
 @app.get("/api/v1/conversations/{conversation_id}/messages")
 async def list_messages(conversation_id: str) -> Dict[str, Any]:
-    messages = _conversations.get(conversation_id)
+    messages = await asyncio.to_thread(_storage.get_conversation_messages, conversation_id)
     if messages is None:
         raise HTTPException(status_code=404, detail="conversation not found")
     return {
         "conversation_id": conversation_id,
-        "messages": [m.model_dump() for m in messages],
+        "messages": messages,
     }
 
 
@@ -322,7 +350,7 @@ async def send_message(
     conversation_id: str,
     request: ChatMessageRequest,
 ) -> ChatMessageResponse:
-    messages = _conversations.get(conversation_id)
+    messages = await asyncio.to_thread(_storage.get_conversation_messages, conversation_id)
     if messages is None:
         raise HTTPException(status_code=404, detail="conversation not found")
 
@@ -331,11 +359,20 @@ async def send_message(
         content=request.message,
         created_at=utc_now_iso(),
     )
-    messages.append(user_record)
+    try:
+        await asyncio.to_thread(
+            _storage.append_message,
+            conversation_id,
+            user_record.role,
+            user_record.content,
+            user_record.created_at,
+        )
+    except ConversationNotFoundError:
+        raise HTTPException(status_code=404, detail="conversation not found")
 
     runtime_result = await agent_runtime.chat(
         request.message,
-        [m.model_dump() for m in messages],
+        [*messages, user_record.model_dump()],
         conversation_id=conversation_id,
     )
     if not runtime_result.get("success", False):
@@ -347,7 +384,16 @@ async def send_message(
         content=reply_text,
         created_at=utc_now_iso(),
     )
-    messages.append(assistant_record)
+    try:
+        await asyncio.to_thread(
+            _storage.append_message,
+            conversation_id,
+            assistant_record.role,
+            assistant_record.content,
+            assistant_record.created_at,
+        )
+    except ConversationNotFoundError:
+        raise HTTPException(status_code=404, detail="conversation not found")
 
     return ChatMessageResponse(
         success=True,
@@ -364,15 +410,30 @@ async def send_message(
 async def run_workflow(request: RunWorkflowRequest) -> WorkflowTaskResponse:
     if request.workflow == "single_project":
         if not request.owner or not request.repo:
-            raise HTTPException(status_code=400, detail="owner and repo are required for single_project workflow")
+            raise HTTPException(status_code=422, detail="owner and repo are required for single_project workflow")
 
     task_id = str(uuid.uuid4())
-    state = WorkflowTaskState()
+    created_at = utc_now_iso()
     async with _task_lock:
-        _workflow_tasks[task_id] = state
+        await asyncio.to_thread(
+            _storage.create_workflow_task,
+            task_id,
+            "queued",
+            created_at,
+            created_at,
+            None,
+            None,
+        )
 
     asyncio.create_task(_execute_workflow_task(task_id, request))
-    return _serialize_task(task_id, state)
+    return WorkflowTaskResponse(
+        task_id=task_id,
+        status="queued",
+        created_at=created_at,
+        updated_at=created_at,
+        result=None,
+        error=None,
+    )
 
 
 @app.post("/api/v1/skills/execute", response_model=SkillExecuteResponse)
@@ -383,6 +444,12 @@ async def execute_skill(request: SkillExecuteRequest) -> SkillExecuteResponse:
         skill_definition=request.skill,
         conversation_id=request.conversation_id,
     )
+
+    # Check for permission/security errors
+    error_msg = result.get("error", "")
+    if error_msg and "permission denied" in error_msg.lower():
+        raise HTTPException(status_code=403, detail=error_msg)
+
     return SkillExecuteResponse(
         success=bool(result.get("success", False)),
         skill_name=request.skill_name,
@@ -396,16 +463,24 @@ async def execute_skill(request: SkillExecuteRequest) -> SkillExecuteResponse:
 
 @app.get("/api/v1/agent/workflows/{task_id}", response_model=WorkflowTaskResponse)
 async def get_workflow_task(task_id: str) -> WorkflowTaskResponse:
-    task = _workflow_tasks.get(task_id)
+    task = await asyncio.to_thread(_storage.get_workflow_task, task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="task not found")
     return _serialize_task(task_id, task)
 
 
 async def _execute_workflow_task(task_id: str, request: RunWorkflowRequest) -> None:
-    task = _workflow_tasks[task_id]
-    task.status = "running"
-    task.updated_at = utc_now_iso()
+    try:
+        await asyncio.to_thread(
+            _storage.update_workflow_task,
+            task_id,
+            "running",
+            utc_now_iso(),
+            None,
+            None,
+        )
+    except WorkflowTaskNotFoundError:
+        return
 
     try:
         result = await agent_runtime.run_workflow(
@@ -419,24 +494,35 @@ async def _execute_workflow_task(task_id: str, request: RunWorkflowRequest) -> N
                 limit=request.limit,
             )
         )
-        task.result = result
-        task.status = "succeeded" if result.get("success", False) else "failed"
-        if task.status == "failed":
-            task.error = result.get("error", "workflow failed")
+        status = "succeeded" if result.get("success", False) else "failed"
+        error = None if status == "succeeded" else result.get("error", "workflow failed")
+        await asyncio.to_thread(
+            _storage.update_workflow_task,
+            task_id,
+            status,
+            utc_now_iso(),
+            result,
+            error,
+        )
     except Exception as exc:
-        task.status = "failed"
-        task.error = str(exc)
-        task.result = {"success": False, "error": str(exc)}
-    finally:
-        task.updated_at = utc_now_iso()
+        await asyncio.to_thread(
+            _storage.update_workflow_task,
+            task_id,
+            "failed",
+            utc_now_iso(),
+            {"success": False, "error": str(exc)},
+            str(exc),
+        )
 
 
-def _serialize_task(task_id: str, task: WorkflowTaskState) -> WorkflowTaskResponse:
+def _serialize_task(task_id: str, task: Dict[str, Any]) -> WorkflowTaskResponse:
+    result = task.get("result")
+    error = task.get("error")
     return WorkflowTaskResponse(
         task_id=task_id,
-        status=task.status,
-        created_at=task.created_at,
-        updated_at=task.updated_at,
-        result=task.result,
-        error=task.error,
+        status=str(task.get("status", "queued")),
+        created_at=str(task.get("created_at", utc_now_iso())),
+        updated_at=str(task.get("updated_at", utc_now_iso())),
+        result=result if isinstance(result, dict) else None,
+        error=str(error) if error is not None else None,
     )

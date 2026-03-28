@@ -1,3 +1,3 @@
 """
-TypeMaster backend package.
+Typo Master backend package.
 """

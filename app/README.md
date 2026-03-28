@@ -1,4 +1,4 @@
-# TypeMaster Product Layout
+# Typo Master Product Layout
 
 This `app/` directory is the product-oriented layout:
 
@@ -14,6 +14,16 @@ python3 app/backend/run.py
 ```
 
 Backend default URL: `http://127.0.0.1:50120`
+
+Backend storage uses MySQL (will auto-create database/tables on startup). Default local connection:
+
+```bash
+export MYSQL_HOST=127.0.0.1
+export MYSQL_PORT=3306
+export MYSQL_USER=root
+export MYSQL_PASSWORD=nopasswd
+export MYSQL_DATABASE=typomaster
+```
 
 ## Run Frontend
 

@@ -1,3 +1,3 @@
 """
-TypeMaster product application root package.
+Typo Master product application root package.
 """

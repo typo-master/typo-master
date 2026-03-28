@@ -14,6 +14,8 @@ import {
   Table,
   Badge,
   Timeline,
+  Row,
+  Col,
 } from "antd";
 import {
   ApiOutlined,
@@ -29,6 +31,7 @@ import {
   SafetyOutlined,
   RocketOutlined,
   FileTextOutlined,
+  RobotFilled,
 } from "@ant-design/icons";
 
 const { Title, Paragraph, Text, Link } = Typography;
@@ -170,7 +173,7 @@ const apiList = [
 ];
 
 export default function IntegrationDocsPage() {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("ai");
 
   // 代码示例
   const sseCompleteExample = `// 完整的 MCP SSE 客户端实现 (TypeScript)
@@ -680,7 +683,7 @@ async def get_capabilities_cached():
 export TYPOAGENT_LOG_LEVEL=DEBUG
 
 # 2. 检查后端日志
-pm2 logs typemaster-backend
+pm2 logs typomaster-backend
 
 # 3. 使用 curl 测试 API
 curl -v http://localhost:50120/api/v1/health
@@ -779,7 +782,490 @@ if response.choices[0].message.get("function_call"):
 
     print(f"执行结果: {result}")`;
 
+  const aiSkillUrl = `${window.location.origin}/docs/typoagent-ai-skill.md`;
+
+  const aiSkillContent = `# TypoAgent AI Skill
+
+## 概述
+
+TypoAgent 是一个智能代码质量治理平台，通过 MCP (Model Context Protocol) 协议和 REST API 对外提供服务。
+
+## 基础信息
+
+- **服务名称**: TypoAgent
+- **MCP SSE 端点**: \`http://localhost:50120/mcp/sse\`
+- **REST API 端点**: \`http://localhost:50120/api/v1\`
+- **健康检查**: \`http://localhost:50120/api/v1/health\`
+
+## 可用工具
+
+### typoagent_execute_skill
+执行 TypoAgent 的 Skill。
+
+**参数**:
+\`\`\`json
+{
+  "skill_name": "scan_typo",
+  "params": {
+    "repo_path": "./path/to/repo",
+    "max_files": 100
+  }
+}
+\`\`\`
+
+**常用 Skills**:
+- \`scan_typo\`: 扫描代码仓库中的拼写错误
+- \`fix_typo\`: 修复拼写错误
+- \`create_pr\`: 创建 Pull Request
+- \`ask_ai\`: 向 AI 询问问题
+
+### typoagent_list_skills
+列出所有可用的 Skills。
+
+### typoagent_get_capabilities
+获取 Agent 的能力信息。
+
+### typoagent_run_workflow
+运行完整工作流。
+
+**参数**:
+\`\`\`json
+{
+  "workflow": "single_project",
+  "owner": "ethereum",
+  "repo": "solidity"
+}
+\`\`\`
+
+## 典型工作流
+
+### 扫描并修复拼写错误
+1. 执行 \`scan_typo\` Skill 扫描仓库
+2. 查看扫描结果
+3. 执行 \`fix_typo\` Skill 修复错误
+
+### 创建 Pull Request
+\`\`\`json
+{
+  "skill_name": "create_pr",
+  "params": {
+    "owner": "github-username",
+    "repo": "repo-name",
+    "title": "Fix typos",
+    "head": "fix-branch",
+    "base": "main"
+  }
+}
+\`\`\`
+
+## REST API 直接调用
+
+### 执行 Skill
+\`\`\`bash
+POST http://localhost:50120/api/v1/skills/execute
+Content-Type: application/json
+
+{
+  "skill_name": "scan_typo",
+  "params": {
+    "repo_path": "./my-project"
+  }
+}
+\`\`\`
+
+### 获取 Capabilities
+\`\`\`bash
+GET http://localhost:50120/api/v1/capabilities
+\`\`\`
+
+## 响应格式
+
+\`\`\`json
+{
+  "success": true,
+  "result": { ... },
+  "error": null
+}
+\`\`\`
+
+## 完整文档
+
+查看完整 Skill 文档: ${aiSkillUrl}
+`;
+
+  const copySkillUrl = () => {
+    navigator.clipboard.writeText(aiSkillUrl);
+    message.success("Skill URL 已复制到剪贴板");
+  };
+
+  const copySkillContent = () => {
+    navigator.clipboard.writeText(aiSkillContent);
+    message.success("Skill 内容已复制到剪贴板");
+  };
+
+  const openSkillInNewTab = () => {
+    window.open(aiSkillUrl, "_blank");
+  };
+
   const tabItems = [
+    {
+      key: "ai",
+      label: (
+        <span>
+          <RobotFilled /> AI 对接
+        </span>
+      ),
+      children: (
+        <div>
+          <Alert
+            type="info"
+            showIcon
+            icon={<RobotOutlined />}
+            message="让 AI 助手使用 TypoAgent"
+            description="复制下方的 Skill 链接或内容给你的 AI 助手（如 Claude、ChatGPT、Cursor 等），让它学会如何调用 TypoAgent 的能力。"
+            style={{ marginBottom: 24 }}
+          />
+
+          <Title level={4}>🤖 如何使用</Title>
+
+          <Steps
+            direction="vertical"
+            current={-1}
+            items={[
+              {
+                title: "复制 Skill 内容",
+                description: "点击下方的复制按钮，获取完整 Skill 说明",
+              },
+              {
+                title: "粘贴给 AI 助手",
+                description: "将内容粘贴到你的 AI 助手对话中（如 Claude Desktop、ChatGPT、Cursor 等）",
+              },
+              {
+                title: "开始使用",
+                description: "告诉 AI 助手你想执行的操作，如\"帮我扫描这个仓库的拼写错误\"",
+              },
+            ]}
+          />
+
+          <Divider />
+
+          <Title level={4}>📋 Skill 链接</Title>
+
+          <Card style={{ background: "#f6ffed", borderColor: "#b7eb8f" }}>
+            <Space direction="vertical" style={{ width: "100%" }}>
+              <Text strong>方式一：复制链接（推荐）</Text>
+              <Paragraph type="secondary">
+                将链接直接发送给 AI 助手，它会自动获取 Skill 内容
+              </Paragraph>
+              <Space>
+                <Text code style={{ fontSize: 14, padding: "8px 16px" }}>
+                  {aiSkillUrl}
+                </Text>
+                <Button type="primary" icon={<CopyOutlined />} onClick={copySkillUrl}>
+                  复制链接
+                </Button>
+                <Button icon={<GlobalOutlined />} onClick={openSkillInNewTab}>
+                  查看原文
+                </Button>
+              </Space>
+            </Space>
+          </Card>
+
+          <Divider />
+
+          <Card style={{ marginTop: 16 }}>
+            <Space direction="vertical" style={{ width: "100%" }}>
+              <Text strong>方式二：复制完整内容</Text>
+              <Paragraph type="secondary">
+                如果 AI 助手无法访问链接，直接复制下方的完整内容
+              </Paragraph>
+              <div style={{ maxHeight: 300, overflow: "auto", background: "#f5f5f5", padding: 16, borderRadius: 4 }}>
+                <pre style={{ margin: 0, fontSize: 12, whiteSpace: "pre-wrap" }}>{aiSkillContent}</pre>
+              </div>
+              <Button icon={<CopyOutlined />} onClick={copySkillContent} block>
+                复制完整内容
+              </Button>
+            </Space>
+          </Card>
+
+          <Divider />
+
+          <Title level={4}>🎯 常见使用场景</Title>
+
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Col xs={24} md={12}>
+              <Card size="small" title="场景一：扫描拼写错误">
+                <Text>让 AI 助手帮你扫描本地仓库的拼写错误，无需记忆复杂命令</Text>
+                <div style={{ marginTop: 12, padding: 8, background: "#f5f5f5", borderRadius: 4 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    "帮我扫描 ./my-project 仓库的拼写错误"
+                  </Text>
+                </div>
+              </Card>
+            </Col>
+            <Col xs={24} md={12}>
+              <Card size="small" title="场景二：自动修复并创建 PR">
+                <Text>一键完成从扫描到 PR 创建的全流程，AI 会引导你完成每个步骤</Text>
+                <div style={{ marginTop: 12, padding: 8, background: "#f5f5f5", borderRadius: 4 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    "扫描并修复拼写错误，然后创建 Pull Request"
+                  </Text>
+                </div>
+              </Card>
+            </Col>
+            <Col xs={24} md={12}>
+              <Card size="small" title="场景三：批量处理多个仓库">
+                <Text>让 AI 帮你批量扫描多个仓库，生成汇总报告</Text>
+                <div style={{ marginTop: 12, padding: 8, background: "#f5f5f5", borderRadius: 4 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    "扫描以下仓库：repo1, repo2, repo3，生成汇总报告"
+                  </Text>
+                </div>
+              </Card>
+            </Col>
+            <Col xs={24} md={12}>
+              <Card size="small" title="场景四：智能问答">
+                <Text>询问 TypoAgent 的能力、配置和使用方法</Text>
+                <div style={{ marginTop: 12, padding: 8, background: "#f5f5f5", borderRadius: 4 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    "TypoAgent 支持哪些 Skills？"
+                  </Text>
+                </div>
+              </Card>
+            </Col>
+          </Row>
+
+          <Divider />
+
+          <Title level={4}>❓ 常见问题</Title>
+
+          <Collapse style={{ marginBottom: 24 }}>
+            <Collapse.Panel header="AI 助手如何获取 Skill 内容？" key="1">
+              <Text>当你将 Skill 链接发送给 AI 助手时，它会自动访问链接获取完整内容。如果 AI 助手无法访问外部链接（如某些企业版 ChatGPT），你可以直接复制完整内容粘贴给它。</Text>
+            </Collapse.Panel>
+            <Collapse.Panel header="支持哪些 AI 助手？" key="2">
+              <Text>理论上支持所有能理解自然语言和工具调用的 AI 助手，包括：Claude Desktop（通过 MCP）、ChatGPT、Cursor、GitHub Copilot Chat、以及其他支持 function calling 的 AI 助手。</Text>
+            </Collapse.Panel>
+            <Collapse.Panel header="AI 操作会不会有风险？" key="3">
+              <Text>TypoAgent 有完整的权限控制系统。默认情况下，敏感操作（如 git push、pr_create）需要显式开启权限。你可以在设置中配置哪些操作允许 AI 执行。</Text>
+            </Collapse.Panel>
+            <Collapse.Panel header="AI 助手需要安装什么吗？" key="4">
+              <Text>不需要。AI 助手通过阅读 Skill 文档就能了解如何调用 TypoAgent。TypoAgent 的服务端运行在你的本地机器上（localhost:50120），AI 助手只需要能访问这个地址即可。</Text>
+            </Collapse.Panel>
+            <Collapse.Panel header="如何验证 AI 已正确配置？" key="5">
+              <Text>给 AI 助手发送："你能做什么？"或"请获取 TypoAgent 的能力列表"。如果 AI 能正确返回 TypoAgent 支持的功能列表，说明配置成功。</Text>
+            </Collapse.Panel>
+          </Collapse>
+
+          <Divider />
+
+          <Title level={4}>✅ 快速验证</Title>
+
+          <Card style={{ marginBottom: 24, background: "#e6fffb", borderColor: "#87e8de" }}>
+            <Space direction="vertical" style={{ width: "100%" }}>
+              <Text strong>配置完成后，发送以下测试消息给 AI 助手：</Text>
+
+              <div style={{ background: "#fff", padding: 12, borderRadius: 4, border: "1px solid #d9d9d9" }}>
+                <Text copyable style={{ fontSize: 14 }}>
+                  你能做什么？请获取 TypoAgent 的能力列表。
+                </Text>
+              </div>
+
+              <Text type="secondary">
+                如果 AI 回复类似以下内容，说明配置成功：
+              </Text>
+
+              <div style={{ background: "#f6ffed", padding: 12, borderRadius: 4, border: "1px solid #b7eb8f" }}>
+                <Text style={{ fontSize: 13 }}>
+                  ✅ 我是 TypoAgent 的 AI 助手，可以帮你：<br/>
+                  • 扫描代码仓库中的拼写错误<br/>
+                  • 自动修复发现的拼写错误<br/>
+                  • 创建 Pull Request<br/>
+                  • 查询 TypoAgent 能力...<br/>
+                  当前系统已启用 12 个 Skills...
+                </Text>
+              </div>
+
+              <Alert
+                type="warning"
+                showIcon
+                message="如果验证失败"
+                description="如果 AI 回复不知道或无法访问，请检查：1) TypoAgent 后端是否运行；2) Skill 内容是否完整粘贴；3) AI 助手是否支持工具调用。"
+              />
+            </Space>
+          </Card>
+
+          <Divider />
+
+          <Title level={4}>💡 支持的 AI 助手</Title>
+
+          <Row gutter={[16, 16]}>
+            <Col span={8}>
+              <Card size="small">
+                <Text strong>Claude Desktop</Text>
+                <Paragraph type="secondary" style={{ marginTop: 8 }}>
+                  通过 MCP 配置直接集成
+                </Paragraph>
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card size="small">
+                <Text strong>Cursor</Text>
+                <Paragraph type="secondary" style={{ marginTop: 8 }}>
+                  在 Composer 中粘贴 Skill
+                </Paragraph>
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card size="small">
+                <Text strong>ChatGPT</Text>
+                <Paragraph type="secondary" style={{ marginTop: 8 }}>
+                  在对话中粘贴 Skill
+                </Paragraph>
+              </Card>
+            </Col>
+          </Row>
+
+          <Divider />
+
+          <Title level={4}>⚙️ 配置示例</Title>
+
+          <Collapse style={{ marginBottom: 24 }}>
+            <Collapse.Panel header="Claude Desktop 配置" key="claude">
+              <Paragraph>在 Claude Desktop 中，你可以直接粘贴 Skill 内容到对话中：</Paragraph>
+              <div style={{ background: "#f5f5f5", padding: 12, borderRadius: 4, marginBottom: 16 }}>
+                <Text style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>
+                  {`你是我的 TypoAgent 助手，帮我操作代码质量治理工具。
+
+请阅读这个 Skill 文档：${aiSkillUrl}
+
+然后帮我扫描 ./my-project 仓库的拼写错误。`}
+                </Text>
+              </div>
+              <Paragraph type="secondary">
+                或者通过 MCP 配置（如果支持）：在 Claude Desktop 设置中添加 MCP 服务器配置
+              </Paragraph>
+            </Collapse.Panel>
+
+            <Collapse.Panel header="Cursor 配置" key="cursor">
+              <Paragraph>在 Cursor 的 Composer 或 Chat 中直接粘贴：</Paragraph>
+              <div style={{ background: "#f5f5f5", padding: 12, borderRadius: 4, marginBottom: 16 }}>
+                <Text style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>
+                  {`你是我的 TypoAgent 助手。请根据以下 Skill 文档帮我操作 TypoAgent：
+${aiSkillUrl}
+
+现在请帮我扫描当前项目的拼写错误。`}
+                </Text>
+              </div>
+            </Collapse.Panel>
+
+            <Collapse.Panel header="ChatGPT 配置" key="chatgpt">
+              <Paragraph>在 ChatGPT 中使用 Custom Instructions：</Paragraph>
+              <div style={{ background: "#f5f5f5", padding: 12, borderRadius: 4, marginBottom: 16 }}>
+                <Text style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>
+                  {`你是我的 TypoAgent 助手，专门帮我操作代码质量治理工具。
+
+请根据以下 Skill 文档理解 TypoAgent 的能力：
+${aiSkillUrl}
+
+当我说"扫描"、"修复"、"创建 PR"等与代码质量相关的操作时，
+请使用上述能力帮我完成。`}
+                </Text>
+              </div>
+            </Collapse.Panel>
+
+            <Collapse.Panel header="GitHub Copilot Chat 配置" key="copilot">
+              <Paragraph>在 VS Code 中使用 Copilot Chat：</Paragraph>
+              <div style={{ background: "#f5f5f5", padding: 12, borderRadius: 4, marginBottom: 16 }}>
+                <Text style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>
+                  {`@workspace 请根据以下 TypoAgent Skill 文档帮我操作：
+${aiSkillUrl}
+
+现在请帮我扫描当前项目的拼写错误。`}
+                </Text>
+              </div>
+            </Collapse.Panel>
+          </Collapse>
+
+          <Divider />
+
+          <Title level={4}>🛠️ 故障排除</Title>
+
+          <Collapse style={{ marginBottom: 24 }}>
+            <Collapse.Panel header="AI 助手无法访问 TypoAgent" key="error1">
+              <Space direction="vertical">
+                <Text strong>症状：</Text>
+                <Text>AI 助手返回连接错误或超时</Text>
+                <Text strong>解决方案：</Text>
+                <Text>1. 检查 TypoAgent 后端是否运行：</Text>
+                <div style={{ background: "#f5f5f5", padding: 8, borderRadius: 4 }}>
+                  <Text code>curl http://localhost:50120/api/v1/health</Text>
+                </div>
+                <Text>2. 启动后端服务：</Text>
+                <div style={{ background: "#f5f5f5", padding: 8, borderRadius: 4 }}>
+                  <Text code>python app/backend/main.py</Text>
+                </div>
+                <Text>3. 检查端口是否被占用：</Text>
+                <div style={{ background: "#f5f5f5", padding: 8, borderRadius: 4 }}>
+                  <Text code>lsof -i :50120</Text>
+                </div>
+              </Space>
+            </Collapse.Panel>
+
+            <Collapse.Panel header="AI 执行了错误的操作" key="error2">
+              <Space direction="vertical">
+                <Text strong>症状：</Text>
+                <Text>AI 理解错误或执行了不相关的操作</Text>
+                <Text strong>解决方案：</Text>
+                <Text>1. 重新粘贴完整的 Skill 内容</Text>
+                <Text>2. 使用更明确的指令，例如：</Text>
+                <div style={{ background: "#f5f5f5", padding: 8, borderRadius: 4 }}>
+                  <Text>"请使用 typoagent_execute_skill 执行 scan_typo，参数是 repo_path: ./my-project"</Text>
+                </div>
+                <Text>3. 一次只做一个操作，分步骤执行</Text>
+                <Text>4. 清除对话上下文重新开始</Text>
+              </Space>
+            </Collapse.Panel>
+
+            <Collapse.Panel header="权限被拒绝" key="error3">
+              <Space direction="vertical">
+                <Text strong>症状：</Text>
+                <Text>操作返回 "Permission denied" 错误</Text>
+                <Text strong>解决方案：</Text>
+                <Text>1. 打开 TypoAgent 控制台：http://localhost:50121</Text>
+                <Text>2. 进入"设置"页面</Text>
+                <Text>3. 找到"权限控制"部分</Text>
+                <Text>4. 开启相应的权限（如 pr_create、git_push）</Text>
+                <Alert type="warning" showIcon message="安全提示" description="敏感权限建议仅在需要时开启" />
+              </Space>
+            </Collapse.Panel>
+
+            <Collapse.Panel header="响应缓慢或超时" key="error4">
+              <Space direction="vertical">
+                <Text strong>症状：</Text>
+                <Text>AI 助手响应慢或操作超时</Text>
+                <Text strong>解决方案：</Text>
+                <Text>1. 限制扫描范围：</Text>
+                <div style={{ background: "#f5f5f5", padding: 8, borderRadius: 4 }}>
+                  <Text>"只扫描 docs 目录" / "只扫描 .md 文件" / "最多扫描 50 个文件"</Text>
+                </div>
+                <Text>2. 分批处理大仓库</Text>
+                <Text>3. 检查仓库大小，超大仓库建议使用命令行工具</Text>
+              </Space>
+            </Collapse.Panel>
+          </Collapse>
+
+          <Divider />
+
+          <Alert
+            type="warning"
+            showIcon
+            message="安全提示"
+            description="Skill 文档仅包含接口说明和示例，不包含任何敏感信息（如 API 密钥）。实际调用时的权限控制由 TypoAgent 服务端管理。"
+          />
+        </div>
+      ),
+    },
     {
       key: "overview",
       label: (
@@ -789,6 +1275,25 @@ if response.choices[0].message.get("function_call"):
       ),
       children: (
         <div>
+          <Alert
+            type="info"
+            showIcon
+            icon={<RobotOutlined />}
+            message="想让 AI 助手帮你操作 TypoAgent？"
+            description={
+              <Space direction="vertical">
+                <Text>
+                  无需编写代码，只需将 Skill 文档复制给你的 AI 助手（Claude、ChatGPT、Cursor 等），
+                  它就能帮你调用 TypoAgent 的所有能力。
+                </Text>
+                <Button type="primary" icon={<RobotFilled />} onClick={() => setActiveTab("ai")}>
+                  查看 AI 对接指南
+                </Button>
+              </Space>
+            }
+            style={{ marginBottom: 24 }}
+          />
+
           <Alert
             type="success"
             showIcon

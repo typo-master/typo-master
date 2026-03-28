@@ -7,4 +7,4 @@ cd "$ROOT_DIR"
 export PM2_HOME="${PM2_HOME:-$ROOT_DIR/.pm2}"
 mkdir -p "$PM2_HOME"
 
-pm2 logs typemaster-backend typemaster-frontend --lines "${1:-100}"
+pm2 logs typomaster-backend typomaster-frontend --lines "${1:-100}"

@@ -26,7 +26,7 @@ kill_port_listeners() {
   done
 }
 
-for app in typemaster-backend typemaster-frontend; do
+for app in typomaster-backend typomaster-frontend; do
   pm2 delete "$app" >/dev/null 2>&1 || true
 done
 

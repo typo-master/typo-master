@@ -102,6 +102,12 @@ body {
   gap: 16px;
 }
 
+/* GitHub 链接悬停效果 */
+.github-link:hover {
+  color: #fff !important;
+  transform: scale(1.1);
+}
+
 .main-content {
   padding: 24px;
   min-height: calc(100vh - 64px - 48px);
@@ -1131,5 +1137,296 @@ body {
 
   .marketing-final-card {
     margin: 12px;
+  }
+}
+
+/* AI 思考中指示器 - Neural Quantum 动画 */
+.ai-thinking-indicator {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 核心光球 */
+.ai-thinking-core {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: radial-gradient(circle, #fff 0%, #6366f1 50%, #8b5cf6 100%);
+  border-radius: 50%;
+  box-shadow:
+    0 0 10px rgba(99, 102, 241, 0.8),
+    0 0 20px rgba(99, 102, 241, 0.5),
+    0 0 30px rgba(139, 92, 246, 0.3);
+  animation: core-pulse 1.5s ease-in-out infinite;
+}
+
+/* 内层轨道 */
+.ai-thinking-ring-inner {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 2px solid transparent;
+  border-top-color: rgba(99, 102, 241, 0.8);
+  border-radius: 50%;
+  animation: spin-clockwise 1.2s linear infinite;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+}
+
+/* 外层轨道 */
+.ai-thinking-ring-outer {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border: 2px solid transparent;
+  border-bottom-color: rgba(6, 182, 212, 0.7);
+  border-radius: 50%;
+  animation: spin-counter 1.8s linear infinite;
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+}
+
+/* 轨道断点 - 营造科技感 */
+.ai-thinking-ring-inner::before,
+.ai-thinking-ring-inner::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: #6366f1;
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(99, 102, 241, 0.8);
+}
+
+.ai-thinking-ring-inner::before {
+  top: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ai-thinking-ring-outer::before {
+  content: '';
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: #06b6d4;
+  border-radius: 50%;
+  bottom: -2.5px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 0 6px rgba(6, 182, 212, 0.8);
+}
+
+/* 核心呼吸动画 */
+@keyframes core-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+/* 顺时针旋转 */
+@keyframes spin-clockwise {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 逆时针旋转 */
+@keyframes spin-counter {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+/* 文字标签 */
+.ai-thinking-text {
+  margin-left: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6, #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.5px;
+}
+
+/* 示例卡片悬停效果 */
+.example-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.example-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.example-card:hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.6);
+}
+
+.example-card:hover::before {
+  opacity: 1;
+}
+
+.example-card:active {
+  transform: translateY(-1px) scale(0.99);
+  transition-duration: 0.1s;
+}
+
+/* 响应式动画 - 支持 prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .ai-thinking-indicator,
+  .ai-thinking-core,
+  .ai-thinking-ring-inner,
+  .ai-thinking-ring-outer {
+    animation: none;
+  }
+
+  .ai-thinking-core {
+    opacity: 0.6;
+  }
+
+  .example-card {
+    transition: none;
+  }
+
+  .example-card:hover {
+    transform: none;
+  }
+}
+
+/* AI 发送按钮悬停效果 */
+.ant-btn-primary:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5) !important;
+  transform: translateY(-1px);
+}
+
+.ant-btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4) !important;
+}
+
+/* AI 消息气泡增强 */
+.ai-message-bubble {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 1px solid #bbf7d0;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
+}
+
+/* 会话项悬停效果 - 扁平化 */
+.session-item-flat {
+  position: relative;
+}
+
+.session-item-flat:hover {
+  background: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+}
+
+.session-item-flat:hover .session-delete-btn-flat {
+  opacity: 1 !important;
+}
+
+.session-delete-btn-flat:hover {
+  background: #fee2e2 !important;
+}
+
+/* AI Chat 卡片容器 - 扁平化 */
+.ai-chat-card {
+  background: #ffffff;
+}
+
+.ai-chat-card .ant-card-body {
+  padding: 20px;
+}
+
+.ai-chat-card .ant-card-head {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 16px 20px;
+}
+
+/* 消息区域 */
+.ai-chat-card .ant-list-item {
+  border-bottom: none !important;
+}
+
+/* 输入框聚焦效果 */
+.ai-chat-card textarea:focus {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 2px rgba(34,197,94,0.1) !important;
+}
+
+/* 发送按钮悬停 */
+.ai-chat-card .ant-btn-primary:hover {
+  background: #16a34a !important;
+}
+
+.ai-chat-card .ant-btn-primary:active {
+  background: #15803d !important;
+}
+
+/* 示例卡片悬停效果 - 扁平化 */
+.example-card-flat {
+  position: relative;
+}
+
+.example-card-flat:hover {
+  border-color: #d1d5db !important;
+  background: #fafafa !important;
+}
+
+.example-card-flat:active {
+  background: #f3f4f6 !important;
+}
+.thinking-dots {
+  display: inline-block;
+  font-size: 14px;
+  letter-spacing: 2px;
+  animation: thinking 1.5s infinite;
+  min-width: 20px;
+}
+
+@keyframes thinking {
+  0%, 20% {
+    content: ".";
+  }
+  40% {
+    content: "..";
+  }
+  60%, 100% {
+    content: "...";
+  }
+}
+
+/* 使用 opacity 动画实现更平滑的点显示 */
+.thinking-dots::after {
+  content: "...";
+  animation: thinking-dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes thinking-dots {
+  0%, 25% {
+    opacity: 0;
+    content: ".";
+  }
+  50% {
+    opacity: 0.5;
+    content: "..";
+  }
+  75%, 100% {
+    opacity: 1;
+    content: "...";
   }
 }

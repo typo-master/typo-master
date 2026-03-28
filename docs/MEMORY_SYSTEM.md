@@ -162,7 +162,6 @@ export MEM0_API_KEY=your_key
 ```
 mem0ai>=0.1.0
 chromadb>=0.5.0
-langgraph-checkpoint-sqlite>=2.0.0
 langchain-openai>=0.2.0
 langchain-community>=0.3.0
 ```

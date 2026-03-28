@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Production entrypoint for TypeMaster backend server (no reload).
+Production entrypoint for Typo Master backend server (no reload).
 """
 
 import sys

@@ -17,13 +17,11 @@ import {
   BugOutlined,
   CheckCircleOutlined,
   CloudOutlined,
-  CodeOutlined,
   DashboardOutlined,
   DatabaseOutlined,
   FileSearchOutlined,
   FileTextOutlined,
   GithubOutlined,
-  LinkOutlined,
   PlayCircleOutlined,
   PullRequestOutlined,
   RocketOutlined,
@@ -32,7 +30,6 @@ import {
   SettingOutlined,
   TeamOutlined,
   ThunderboltOutlined,
-  ToolOutlined,
 } from "@ant-design/icons";
 import { Link } from "react-router-dom";
 import { useConfig } from "../config";
@@ -100,72 +97,70 @@ const capabilityFeatureMeta: Record<string, CapabilityFeatureMeta> = {
   },
 };
 
-const valueProps = [
+const painPoints = [
   {
-    title: "问题 1：拼写与术语问题容易漏检",
-    desc: "代码、注释、文档分散在多个文件里，人工检查很难稳定覆盖。",
+    title: "代码审查总漏掉拼写细节",
+    desc: "变量名、注释、文档里的拼写错误，人工 review 很难全面覆盖，上线后才发现尴尬。",
     icon: <FileSearchOutlined />,
   },
   {
-    title: "问题 2：手工排查和修复太耗时",
-    desc: "从发现问题到逐个修复、再整理说明，过程重复且容易中断。",
+    title: "术语不一致影响专业形象",
+    desc: "代码里叫 userId，文档里叫 user_id，API 里叫 userID，混乱的术语让协作成本飙升。",
+    icon: <BranchesOutlined />,
+  },
+  {
+    title: "质量检查沦为重复劳动",
+    desc: "每次发版前手工检查拼写、核对术语，耗时耗力还容易遗漏，开发体验糟糕。",
     icon: <BugOutlined />,
   },
-  {
-    title: "问题 3：结果难沉淀、难复用",
-    desc: "没有统一流程时，问题历史和修复质量难以持续追踪与复用。",
-    icon: <SafetyOutlined />,
-  },
 ];
 
-const useCases = [
+const scenarios = [
   {
-    title: "开源维护者",
-    desc: "在每次发布前快速扫描仓库，减少低级错误进入主分支。",
-    icon: <GithubOutlined />,
-  },
-  {
-    title: "独立开发者",
-    desc: "把重复的质量检查自动化，把时间留给功能开发本身。",
-    icon: <CodeOutlined />,
-  },
-  {
-    title: "技术内容创作者",
-    desc: "写文档、教程、示例代码时保持术语一致和表达专业。",
+    title: "开源项目维护",
+    desc: "自动扫描大量文档和代码，确保专业形象，减少外部贡献者的拼写困扰。",
     icon: <TeamOutlined />,
   },
-];
-
-const activationSteps = [
   {
-    title: "完成配置",
-    description: "在设置页配置 LLM、GitHub Token 与权限策略",
+    title: "企业代码治理",
+    desc: "统一多仓库术语规范，建立可重复的质量检查流程，降低协作摩擦。",
+    icon: <CloudOutlined />,
   },
   {
-    title: "跑通首个任务",
-    description: "在任务执行页选择仓库并启动单仓库扫描流程",
-  },
-  {
-    title: "形成你的日常流程",
-    description: "根据你的节奏配置 Skill、触发器与对接方式",
+    title: "技术文档交付",
+    desc: "在发布前自动检查文档拼写和术语一致性，提升交付质量。",
+    icon: <FileTextOutlined />,
   },
 ];
 
-const integrationCards = [
+const solutionSteps = [
+  { title: "自动发现", desc: "智能识别目标仓库和文档目录" },
+  { title: "深度扫描", desc: "代码、注释、文档全覆盖检测" },
+  { title: "精准评估", desc: "上下文分析过滤误报" },
+  { title: "一键修复", desc: "批量生成修复建议" },
+  { title: "自动提交", desc: "直接发起 Pull Request" },
+];
+
+const advantages = [
   {
-    title: "MCP SSE",
-    detail: "提供 /mcp/sse 与 /mcp/messages，可被外部 MCP 客户端直接调用。",
+    title: "全链路自动化",
+    desc: "从发现问题到提交 PR，全程无需人工干预，真正解放生产力。",
+    icon: <ThunderboltOutlined />,
+  },
+  {
+    title: "上下文感知",
+    desc: "不只是拼写检查，更能理解代码语义，大幅降低误报率。",
+    icon: <SafetyOutlined />,
+  },
+  {
+    title: "无缝集成",
+    desc: "MCP 协议、REST API、GitHub Action，轻松接入现有工作流。",
     icon: <ApiOutlined />,
   },
   {
-    title: "REST API",
-    detail: "覆盖 Skills、MCP、Workflow、Permissions 等核心能力接口。",
-    icon: <LinkOutlined />,
-  },
-  {
-    title: "权限治理",
-    detail: "支持 Git/GitHub/Shell/外部访问等细粒度权限开关。",
-    icon: <SettingOutlined />,
+    title: "持续追踪",
+    desc: "问题历史、修复质量、团队表现，数据可视化一目了然。",
+    icon: <DashboardOutlined />,
   },
 ];
 
@@ -280,11 +275,10 @@ export default function HomePage() {
             面向真实开发问题的智能质量助手
           </Tag>
           <Title level={1} className="marketing-title">
-            把仓库质量治理从“人工排查”升级成“自动化流水线”
+            让代码质量检查从此自动化
           </Title>
           <Paragraph className="marketing-subtitle">
-            Type Master 把仓库发现、拼写扫描、质量评估、自动修复与 PR 决策串成一条可复用流程，
-            帮你持续减少低质量拼写问题，并把修复结果沉淀为可追踪资产。
+            面向开发团队的智能代码质量治理平台。自动发现拼写错误、统一术语规范、生成修复建议，让每一次代码提交都更专业。
           </Paragraph>
 
           <Space wrap size={12} className="marketing-cta-row">
@@ -295,25 +289,16 @@ export default function HomePage() {
             </Link>
             <Link to="/docs">
               <Button size="large" icon={<ArrowRightOutlined />}>
-                查看对接方式
+                查看文档
               </Button>
             </Link>
           </Space>
 
-          <Space wrap size={[8, 10]} className="marketing-status-tags">
-            <Tag color={caps?.llm?.enabled ? "success" : "default"}>{llmBadge}</Tag>
-            <Tag color={config.githubToken ? "success" : "default"}>
-              GitHub Token: {config.githubToken ? "已配置" : "未配置"}
-            </Tag>
-            {caps?.framework && <Tag color="processing">{caps.framework}</Tag>}
-            {mcpSseEnabled && <Tag color="blue">MCP SSE 已启用</Tag>}
-          </Space>
-
           <div className="marketing-highlight-line">
-            <span>解决真实问题</span>
-            <span>自动化执行</span>
-            <span>结果可追踪</span>
-            <span>能力可扩展</span>
+            <span>自动扫描</span>
+            <span>智能修复</span>
+            <span>一键提交</span>
+            <span>持续追踪</span>
           </div>
         </div>
       </section>
@@ -353,10 +338,13 @@ export default function HomePage() {
 
       <section className="marketing-section marketing-section-alt">
         <div className="marketing-section-head">
-          <Title level={2}>我们解决哪些问题</Title>
+          <Title level={2}>解决什么问题</Title>
+          <Paragraph type="secondary">
+            这些困扰开发团队的日常痛点，Typo Master 帮你一次性解决
+          </Paragraph>
         </div>
         <Row gutter={[14, 14]}>
-          {valueProps.map((item) => (
+          {painPoints.map((item) => (
             <Col key={item.title} xs={24} md={8}>
               <Card className="marketing-value-card">
                 <div className="marketing-value-icon">{item.icon}</div>
@@ -370,9 +358,9 @@ export default function HomePage() {
 
       <section className="marketing-section">
         <div className="marketing-section-head">
-          <Title level={2}>我们怎么解决</Title>
+          <Title level={2}>完整工作流</Title>
           <Paragraph type="secondary">
-            通过“发现 → 分析 → 修复 → 决策 → 报告”的链路，把质量治理变成稳定可重复的流程。
+            从发现到修复的 5 步闭环，让质量治理变成稳定可重复的流程
           </Paragraph>
         </div>
 
@@ -391,7 +379,7 @@ export default function HomePage() {
         {caps?.pipeline_nodes && caps.pipeline_nodes.length > 0 && (
           <div className="marketing-node-strip">
             {caps.pipeline_nodes.map((node) => (
-              <Tag key={node} color="geekblue">
+              <Tag key={node} color="green">
                 {node}
               </Tag>
             ))}
@@ -417,10 +405,33 @@ export default function HomePage() {
 
       <section className="marketing-section marketing-section-alt">
         <div className="marketing-section-head">
-          <Title level={2}>适用场景</Title>
+          <Title level={2}>核心优势</Title>
+          <Paragraph type="secondary">
+            不止于拼写检查，更关注代码质量的全面提升
+          </Paragraph>
         </div>
         <Row gutter={[14, 14]}>
-          {useCases.map((item) => (
+          {advantages.map((item) => (
+            <Col key={item.title} xs={24} md={12}>
+              <Card className="marketing-value-card">
+                <div className="marketing-value-icon">{item.icon}</div>
+                <Title level={4}>{item.title}</Title>
+                <Paragraph type="secondary">{item.desc}</Paragraph>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </section>
+
+      <section className="marketing-section">
+        <div className="marketing-section-head">
+          <Title level={2}>适用场景</Title>
+          <Paragraph type="secondary">
+            无论是开源项目还是企业代码库，都能获得专业级的质量保障
+          </Paragraph>
+        </div>
+        <Row gutter={[14, 14]}>
+          {scenarios.map((item) => (
             <Col key={item.title} xs={24} md={8}>
               <Card className="marketing-usecase-card">
                 <Space size={8} className="marketing-usecase-title">
@@ -436,61 +447,40 @@ export default function HomePage() {
         </Row>
       </section>
 
-      <section className="marketing-section">
+      <section className="marketing-section marketing-section-alt">
         <div className="marketing-section-head">
-          <Title level={2}>3 步启动流程</Title>
+          <Title level={2}>快速启动</Title>
+          <Paragraph type="secondary">
+            三步完成配置，立即开始自动化质量治理
+          </Paragraph>
         </div>
         <Card className="marketing-steps-card">
           <Steps
             direction="vertical"
             current={-1}
-            items={activationSteps.map((step) => ({
+            items={solutionSteps.map((step) => ({
               title: step.title,
-              description: step.description,
+              description: step.desc,
               icon: <CheckCircleOutlined />,
             }))}
           />
         </Card>
       </section>
 
-      <section className="marketing-section marketing-section-alt">
-        <div className="marketing-section-head">
-          <Title level={2}>集成与治理能力</Title>
-        </div>
-        <Row gutter={[14, 14]}>
-          {integrationCards.map((item) => (
-            <Col key={item.title} xs={24} md={8}>
-              <Card className="marketing-integration-card">
-                <Space size={8}>
-                  {item.icon}
-                  <Text strong>{item.title}</Text>
-                </Space>
-                <Paragraph type="secondary" style={{ marginTop: 10, marginBottom: 0 }}>
-                  {item.detail}
-                </Paragraph>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      </section>
-
       <section className="marketing-final-cta">
         <Card className="marketing-final-card">
           <Title level={3}>准备好把质量治理流程自动化了吗？</Title>
           <Paragraph>
-            先完成设置，再跑一个公开仓库，你就能直观看到：问题是怎么被发现、怎么被修复、结果如何呈现的。
+            完成配置，运行一个公开仓库，直观感受自动化质量治理的价值
           </Paragraph>
           <Space wrap size={12}>
             <Link to="/settings">
               <Button type="primary" icon={<SettingOutlined />}>
-                先完成配置
+                完成配置
               </Button>
             </Link>
             <Link to="/workspace/tasks">
-              <Button icon={<RocketOutlined />}>运行首个任务</Button>
-            </Link>
-            <Link to="/workspace/skills">
-              <Button icon={<ToolOutlined />}>查看技能库</Button>
+              <Button icon={<RocketOutlined />}>运行任务</Button>
             </Link>
           </Space>
         </Card>

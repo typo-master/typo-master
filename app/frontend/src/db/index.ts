@@ -3,7 +3,7 @@
  * 用于存储对话记录、触发器配置、Agent Skill 等数据
  */
 
-const DB_NAME = "TypeMasterDB";
+const DB_NAME = "TypoMasterDB";
 const DB_VERSION = 1;
 
 // 存储对象名称

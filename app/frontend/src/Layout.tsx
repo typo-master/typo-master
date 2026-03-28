@@ -7,6 +7,7 @@ import {
   Space,
   Button,
   Badge,
+  Tooltip,
 } from "antd";
 import {
   HomeOutlined,
@@ -65,11 +66,11 @@ export default function MainLayout() {
           <Avatar
             size={40}
             icon={<RobotOutlined />}
-            style={{ background: "#22c55e" }}
+            style={{ background: "#166534", border: "1px solid #86efac" }}
           />
           <div className="brand-text">
             <Title level={5} className="brand-title">
-              <ThunderboltOutlined /> Type Master
+              <ThunderboltOutlined /> Typo Master
             </Title>
             <Text className="brand-subtitle">Agent Automation Console</Text>
           </div>
@@ -89,20 +90,29 @@ export default function MainLayout() {
             <Badge
               status={config.llm.enabled ? "success" : "default"}
               text={
-                <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 12 }}>
+                <span style={{ color: "#ecfdf5", fontSize: 12, fontWeight: 500 }}>
                   <ApiOutlined /> {config.llm.enabled ? "AI 已启用" : "AI 未启用"}
                 </span>
               }
             />
-            {/* GitHub Token 状态 */}
-            <Badge
-              status={config.githubToken ? "success" : "default"}
-              text={
-                <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 12 }}>
-                  <GithubOutlined /> {config.githubToken ? "Token 已配置" : "Token 未配置"}
-                </span>
-              }
-            />
+            {/* GitHub 徽标 */}
+            <Tooltip title="去 GitHub star 支持我们" placement="bottom">
+              <a
+                href="https://github.com/cc11001100/typo-master"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  color: "#ecfdf5",
+                  fontSize: 20,
+                  transition: "color 0.3s",
+                }}
+                className="github-link"
+              >
+                <GithubOutlined />
+              </a>
+            </Tooltip>
           </Space>
         </div>
       </Header>
@@ -114,7 +124,7 @@ export default function MainLayout() {
       {/* 页脚 */}
       <footer className="main-footer">
         <Text type="secondary" style={{ fontSize: 12 }}>
-          © 2024 Type Master · Intelligent Code Quality Agent Platform
+          © 2024 Typo Master · Intelligent Code Quality Agent Platform
         </Text>
       </footer>
     </Layout>

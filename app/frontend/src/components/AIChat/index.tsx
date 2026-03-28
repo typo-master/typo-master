@@ -46,6 +46,11 @@ import {
   FileSearchOutlined,
   EditOutlined,
   BranchesOutlined,
+  RocketOutlined,
+  StarOutlined,
+  MessageOutlined,
+  SearchOutlined,
+  BulbOutlined,
 } from "@ant-design/icons";
 import { chatStore, getConversationMessages, skillStore, type ChatMessage, type ExecutionStep } from "../../db";
 import { createConversation, sendChatMessage, executeSkill as executeSkillApi } from "../../api";
@@ -270,6 +275,55 @@ export default function AIChat({ agentId = "default", onExecuteSkill }: AIChatPr
     setAutocompleteType(null);
   }, [availableSkills]);
 
+  // 处理示例对话点击
+  const handleExampleClick = (exampleText: string) => {
+    setInput(exampleText);
+    // 使用 setTimeout 确保输入已更新后再发送
+    setTimeout(() => {
+      handleSend();
+    }, 100);
+  };
+
+  // 生成示例卡片数据 - 使用玻璃拟态设计
+  const exampleCards = useMemo(() => [
+    {
+      id: "web3",
+      title: "Web3 空投项目搜索",
+      description: "搜索适合贡献的 Web3 项目",
+      icon: <RocketOutlined />,
+      color: "#22c55e",
+      bgGradient: "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)",
+      query: "搜索一些适合贡献的 Web3 项目",
+    },
+    {
+      id: "typo",
+      title: "扫描代码拼写错误",
+      description: "检测指定仓库的 typo 问题",
+      icon: <SearchOutlined />,
+      color: "#3b82f6",
+      bgGradient: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)",
+      query: "扫描 ethereum/solidity 仓库的 typo",
+    },
+    {
+      id: "github",
+      title: "搜索热门项目",
+      description: "按条件查找 GitHub 仓库",
+      icon: <StarOutlined />,
+      color: "#8b5cf6",
+      bgGradient: "linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)",
+      query: "帮我找一些 stars 数超过 1000 的 Python 项目",
+    },
+    {
+      id: "chat",
+      title: "AI 咨询",
+      description: "询问开源贡献相关问题",
+      icon: <MessageOutlined />,
+      color: "#f59e0b",
+      bgGradient: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+      query: "如何参与开源项目的 typo 修复？",
+    },
+  ], []);
+
   // 处理输入变化
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -354,16 +408,30 @@ export default function AIChat({ agentId = "default", onExecuteSkill }: AIChatPr
   };
 
   const handleSend = async () => {
-    if (!input.trim() || !conversationId) return;
+    if (!input.trim()) return;
 
     const content = input.trim();
     setInput("");
     setShowAutocomplete(false);
     setLoading(true);
 
+    // 确保有有效的 conversation
+    let currentConversationId = conversationId;
+    if (!currentConversationId) {
+      try {
+        const created = await createConversation();
+        currentConversationId = created.conversation_id;
+        setConversationId(currentConversationId);
+      } catch (error) {
+        message.error("创建会话失败: " + String(error));
+        setLoading(false);
+        return;
+      }
+    }
+
     // 保存用户消息
     const userMessage: ChatMessage = {
-      conversationId,
+      conversationId: currentConversationId,
       agentId,
       role: "user",
       content,
@@ -400,9 +468,25 @@ export default function AIChat({ agentId = "default", onExecuteSkill }: AIChatPr
         await executeSkill(skillName, params);
       } else {
         // 普通对话
-        const reply = await sendChatMessage(conversationId, content);
+        let reply;
+        try {
+          reply = await sendChatMessage(currentConversationId, content);
+        } catch (error: any) {
+          // 如果是 conversation not found，尝试重新创建会话并重试
+          if (error.message?.includes("conversation not found")) {
+            const created = await createConversation();
+            currentConversationId = created.conversation_id;
+            setConversationId(currentConversationId);
+            // 使用新的 conversation ID 重试
+            reply = await sendChatMessage(currentConversationId, content);
+            // 更新用户消息的 conversation ID
+            userMessage.conversationId = currentConversationId;
+          } else {
+            throw error;
+          }
+        }
         const aiMessage: ChatMessage = {
-          conversationId,
+          conversationId: currentConversationId,
           agentId,
           role: "assistant",
           content: reply.reply,
@@ -744,25 +828,44 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
     <Card
       className="ai-chat-card"
       bordered={false}
+      style={{
+        borderRadius: 12,
+        background: "#ffffff",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03)",
+        border: "1px solid #e5e7eb",
+      }}
       title={
-        <Space size={4}>
-          <RobotOutlined />
-          <span>AI 助手</span>
+        <Space size={10}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: "#22c55e",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <RobotOutlined style={{ color: "#fff", fontSize: 18 }} />
+          </div>
+          <span style={{ fontWeight: 600, fontSize: 16, color: "#111827" }}>AI 助手</span>
           {!config.llm.enabled && (
-            <Tag color="warning">
+            <Tag color="warning" style={{ borderRadius: 4, fontSize: 11, fontWeight: 500 }}>
               AI 未启用
             </Tag>
           )}
         </Space>
       }
       extra={
-        <Space size={4}>
+        <Space size={6}>
           <Tooltip title={isFullscreen ? "退出全屏" : "全屏"}>
             <Button
               type="text"
               size="small"
               icon={isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
               onClick={() => setIsFullscreen((prev) => !prev)}
+              style={{ borderRadius: 8, width: 32, height: 32 }}
             />
           </Tooltip>
           <Tooltip title="Skill 列表">
@@ -771,10 +874,16 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
               size="small"
               icon={<ToolOutlined />}
               onClick={() => setShowSkillPanel(!showSkillPanel)}
+              style={{ borderRadius: 8, width: 32, height: 32 }}
             />
           </Tooltip>
           <Tooltip title="新对话">
-            <Button size="small" icon={<ThunderboltOutlined />} onClick={newConversation} />
+            <Button
+              size="small"
+              icon={<ThunderboltOutlined />}
+              onClick={newConversation}
+              style={{ borderRadius: 8, width: 32, height: 32 }}
+            />
           </Tooltip>
           <Tooltip title="清空">
             <Popconfirm
@@ -783,11 +892,14 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
               okText="清空"
               cancelText="取消"
               okButtonProps={{ danger: true }}
-              onConfirm={() => {
-                void clearChat();
-              }}
+              onConfirm={() => { void clearChat(); }}
             >
-              <Button size="small" icon={<ClearOutlined />} />
+              <Button
+                size="small"
+                icon={<ClearOutlined />}
+                danger
+                style={{ borderRadius: 8, width: 32, height: 32 }}
+              />
             </Popconfirm>
           </Tooltip>
         </Space>
@@ -796,52 +908,68 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
       <div
         style={{
           display: "flex",
-          gap: 12,
+          gap: 16,
           height: isFullscreen ? "calc(100vh - 180px)" : "calc(100vh - 280px)",
           minHeight: 480,
         }}
       >
-        {/* 左侧：对话历史 */}
+        {/* 左侧：对话历史 - 扁平化风格 */}
         <div
           style={{
-            width: 180,
-            borderRight: "1px solid #f0f0f0",
-            paddingRight: 12,
+            width: 220,
+            borderRight: "1px solid #e5e7eb",
+            paddingRight: 16,
             display: "flex",
             flexDirection: "column",
             flexShrink: 0,
           }}
         >
-          <Text type="secondary" style={{ marginBottom: 6, fontSize: 11, fontWeight: 500 }}>
-            <HistoryOutlined /> 历史会话
-          </Text>
-          <div style={{ flex: 1, overflow: "auto" }}>
+          <div style={{
+            marginBottom: 16,
+            fontSize: 12,
+            fontWeight: 600,
+            color: "#6b7280",
+            letterSpacing: "0.3px",
+            textTransform: "uppercase",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 12px",
+            background: "#f9fafb",
+            borderRadius: 8,
+            border: "1px solid #e5e7eb",
+          }}>
+            <HistoryOutlined style={{ fontSize: 14, color: "#6b7280" }} /> 历史会话
+          </div>
+          <div style={{ flex: 1, overflow: "auto", padding: "0 4px" }}>
             {sessions.map((session) => (
               <div
                 key={session.id}
                 onClick={() => switchConversation(session.id)}
                 style={{
-                  padding: "6px 8px",
+                  padding: "12px 14px",
                   cursor: "pointer",
-                  borderRadius: 4,
-                  marginBottom: 4,
-                  background: "transparent",
-                  border:
-                    session.id === conversationId
-                      ? "1px solid #22c55e"
-                      : "1px solid transparent",
+                  borderRadius: 8,
+                  marginBottom: 6,
+                  background: session.id === conversationId
+                    ? "#dcfce7"
+                    : "transparent",
+                  border: session.id === conversationId
+                    ? "1px solid #86efac"
+                    : "1px solid transparent",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  gap: 4,
+                  gap: 10,
+                  transition: "all 0.15s ease",
                 }}
+                className="session-item-flat"
               >
                 <div style={{ flex: 1, overflow: "hidden", minWidth: 0 }}>
-                  <Text strong style={{ fontSize: 12 }} ellipsis>
+                  <Text strong style={{ fontSize: 13, color: session.id === conversationId ? "#166534" : "#111827", display: "block" }} ellipsis>
                     {session.title}
                   </Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: 10 }} ellipsis>
+                  <Text style={{ fontSize: 11, color: session.id === conversationId ? "#16a34a" : "#9ca3af", marginTop: 2 }} ellipsis>
                     {session.lastMessage}
                   </Text>
                 </div>
@@ -863,7 +991,15 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                     icon={<DeleteOutlined />}
                     onClick={(e) => e.stopPropagation()}
                     danger
-                    style={{ padding: "0 4px", minWidth: 24, height: 24 }}
+                    style={{
+                      padding: "4px 8px",
+                      minWidth: 28,
+                      height: 28,
+                      borderRadius: 6,
+                      opacity: 0,
+                      transition: "all 0.15s ease",
+                    }}
+                    className="session-delete-btn-flat"
                   />
                 </Popconfirm>
               </div>
@@ -892,11 +1028,147 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
             }}
           >
             {messages.length === 0 ? (
-              <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description="开始对话吧！"
-                />
+              <div
+                style={{
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 32,
+                }}
+              >
+                {/* 扁平化风格 Empty 状态 */}
+                <div
+                  style={{
+                    padding: "32px 40px",
+                    borderRadius: 12,
+                    background: "#ffffff",
+                    border: "1px solid #e5e7eb",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                    textAlign: "center",
+                    maxWidth: 480,
+                    width: "100%",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: "50%",
+                      background: "#22c55e",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "0 auto 16px",
+                    }}
+                  >
+                    <RobotOutlined style={{ fontSize: 28, color: "#fff" }} />
+                  </div>
+                  <Title level={4} style={{ marginBottom: 8, color: "#111827", fontWeight: 600 }}>
+                    开始对话
+                  </Title>
+                  <Text style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
+                    我是 Typo Master AI 助手，可以帮助您搜索 GitHub 项目、<br />
+                    扫描代码 typo、管理 Web3 空投任务等。
+                  </Text>
+                </div>
+
+                {/* 示例卡片区域 - 扁平化 */}
+                <div style={{ marginTop: 28, width: "100%", maxWidth: 680 }}>
+                  <div style={{ textAlign: "center", marginBottom: 16 }}>
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "4px 12px",
+                        borderRadius: 6,
+                        background: "#f3f4f6",
+                        border: "1px solid #e5e7eb",
+                      }}
+                    >
+                      <BulbOutlined style={{ color: "#22c55e", fontSize: 14 }} />
+                      <Text style={{ fontSize: 12, color: "#374151", fontWeight: 500 }}>
+                        快速开始，选择一个示例
+                      </Text>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                      gap: 12,
+                    }}
+                  >
+                    {exampleCards.map((card) => (
+                      <div
+                        key={card.id}
+                        onClick={() => handleExampleClick(card.query)}
+                        style={{
+                          cursor: "pointer",
+                          padding: 16,
+                          borderRadius: 10,
+                          background: "#ffffff",
+                          border: "1px solid #e5e7eb",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                          transition: "all 0.15s ease",
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 12,
+                        }}
+                        className="example-card-flat"
+                      >
+                        <div
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 8,
+                            background: card.color + "15",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <span style={{ color: card.color, fontSize: 18 }}>{card.icon}</span>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <Text
+                            strong
+                            style={{
+                              display: "block",
+                              fontSize: 13,
+                              color: "#111827",
+                              marginBottom: 2,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {card.title}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              color: "#6b7280",
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {card.description}
+                          </Text>
+                        </div>
+                        <ArrowRightOutlined
+                          style={{
+                            color: "#9ca3af",
+                            fontSize: 12,
+                            flexShrink: 0,
+                            marginTop: 4,
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : (
               <List
@@ -920,7 +1192,9 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                         size="small"
                         icon={msg.role === "user" ? <UserOutlined /> : <RobotOutlined />}
                         style={{
-                          background: msg.role === "user" ? "#22c55e" : "#1677ff",
+                          background: msg.role === "user"
+                            ? "#22c55e"
+                            : "#3b82f6",
                           flexShrink: 0,
                         }}
                       />
@@ -928,26 +1202,39 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                         style={{
                           maxWidth: "85%",
                           minWidth: 120,
-                          padding: "8px 12px",
-                          borderRadius: 4,
-                          background: "transparent",
-                          border:
-                            msg.role === "user"
-                              ? "1px solid #bbf7d0"
-                              : "1px solid #e5e7eb",
-                          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                          padding: "10px 14px",
+                          borderRadius: msg.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
+                          background: msg.role === "user"
+                            ? "#22c55e"
+                            : "#f3f4f6",
+                          border: msg.role === "user"
+                            ? "none"
+                            : "1px solid #e5e7eb",
                         }}
                       >
                         {msg.skills && msg.skills.length > 0 && (
-                          <div style={{ marginBottom: 3 }}>
+                          <div style={{ marginBottom: 6 }}>
                             {msg.skills.map((skill) => (
-                              <Tag key={skill} color="blue" style={{ fontSize: 10, padding: "0 4px" }}>
+                              <Tag key={skill} style={{
+                                fontSize: 10,
+                                padding: "2px 8px",
+                                background: "#dbeafe",
+                                border: "1px solid #bfdbfe",
+                                color: "#1d4ed8",
+                                borderRadius: 4,
+                              }}>
                                 <ToolOutlined /> {skill}
                               </Tag>
                             ))}
                           </div>
                         )}
-                        <Paragraph style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.5 }}>
+                        <Paragraph style={{
+                          margin: 0,
+                          whiteSpace: "pre-wrap",
+                          fontSize: 14,
+                          lineHeight: 1.5,
+                          color: msg.role === "user" ? "#fff" : "#111827",
+                        }}>
                           {msg.content}
                         </Paragraph>
                         {/* 步骤流程展示 */}
@@ -965,12 +1252,61 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                 )}
               />
             )}
+
+            {/* AI 思考中提示 - 扁平化设计 */}
+            {loading && (
+              <List.Item
+                style={{
+                  justifyContent: "flex-start",
+                  padding: "8px 0",
+                }}
+              >
+                <Space
+                  align="start"
+                  style={{
+                    flexDirection: "row",
+                    gap: "10px",
+                  }}
+                >
+                  <Avatar
+                    size="small"
+                    icon={<RobotOutlined />}
+                    style={{
+                      background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                      flexShrink: 0,
+                      boxShadow: "0 0 12px rgba(99, 102, 241, 0.4)",
+                    }}
+                  />
+                  <div
+                    style={{
+                      maxWidth: "85%",
+                      minWidth: 160,
+                      padding: "12px 16px",
+                      borderRadius: 16,
+                      background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
+                      border: "1px solid rgba(99, 102, 241, 0.3)",
+                      boxShadow: "0 4px 20px rgba(99, 102, 241, 0.2), inset 0 1px 0 rgba(255,255,255,0.05)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      {/* Neural Quantum 动画 */}
+                      <div className="ai-thinking-indicator">
+                        <div className="ai-thinking-core"></div>
+                        <div className="ai-thinking-ring-inner"></div>
+                        <div className="ai-thinking-ring-outer"></div>
+                      </div>
+                      <span className="ai-thinking-text">AI 思考中</span>
+                    </div>
+                  </div>
+                </Space>
+              </List.Item>
+            )}
             <div ref={messagesEndRef} />
           </div>
 
           {/* 输入区域 */}
           <div style={{ position: "relative", flexShrink: 0 }}>
-            {/* 自动补全下拉菜单 */}
+            {/* 自动补全下拉菜单 - 扁平化风格 */}
             {showAutocomplete && (
               <div
                 style={{
@@ -979,11 +1315,11 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                   left: 0,
                   right: 80,
                   marginBottom: 8,
-                  background: "#fff",
-                  borderRadius: 4,
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                  background: "#ffffff",
+                  borderRadius: 10,
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.05)",
                   border: "1px solid #e5e7eb",
-                  maxHeight: 280,
+                  maxHeight: 300,
                   overflow: "auto",
                   zIndex: 1000,
                 }}
@@ -993,12 +1329,14 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                   <div>
                     <div
                       style={{
-                        padding: "6px 12px",
+                        padding: "10px 16px",
                         background: "transparent",
-                        borderBottom: "1px solid #f0f0f0",
+                        borderBottom: "1px solid rgba(226,232,240,0.6)",
                         fontSize: 11,
                         color: "#64748b",
-                        fontWeight: 500,
+                        fontWeight: 600,
+                        letterSpacing: "0.3px",
+                        textTransform: "uppercase",
                       }}
                     >
                       可用命令 ({filteredCommands.length})
@@ -1008,30 +1346,47 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                         key={cmd.name}
                         onClick={() => selectAutocompleteItem(index)}
                         style={{
-                          padding: "8px 12px",
+                          padding: "12px 16px",
                           cursor: "pointer",
                           display: "flex",
                           alignItems: "center",
-                          gap: 10,
-                          background: "transparent",
-                          borderBottom: "1px solid #f8fafc",
+                          gap: 12,
+                          background: index === selectedIndex ? "rgba(34,197,94,0.08)" : "transparent",
+                          borderBottom: "1px solid rgba(241,245,249,0.6)",
+                          transition: "all 0.15s ease",
                         }}
                         onMouseEnter={() => setSelectedIndex(index)}
                       >
-                        <span style={{ color: "#22c55e", fontSize: 16 }}>{cmd.icon}</span>
+                        <span style={{
+                          color: "#22c55e",
+                          fontSize: 18,
+                          width: 28,
+                          height: 28,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: 8,
+                          background: "rgba(34,197,94,0.1)",
+                        }}>{cmd.icon}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <Text strong style={{ fontSize: 13 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                            <Text strong style={{ fontSize: 14, color: "#1e293b" }}>
                               /{cmd.name}
                             </Text>
-                            <Text type="secondary" style={{ fontSize: 11 }}>
+                            <Text style={{ fontSize: 12, color: "#64748b" }}>
                               {cmd.description}
                             </Text>
                           </div>
                           {cmd.usage && (
-                            <Text type="secondary" style={{ fontSize: 10 }} code>
+                            <code style={{
+                              fontSize: 11,
+                              padding: "2px 6px",
+                              borderRadius: 4,
+                              background: "rgba(34,197,94,0.08)",
+                              color: "#166534",
+                            }}>
                               {cmd.usage}
-                            </Text>
+                            </code>
                           )}
                         </div>
                       </div>
@@ -1044,12 +1399,14 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                   <div>
                     <div
                       style={{
-                        padding: "6px 12px",
+                        padding: "10px 16px",
                         background: "transparent",
-                        borderBottom: "1px solid #f0f0f0",
+                        borderBottom: "1px solid rgba(226,232,240,0.6)",
                         fontSize: 11,
                         color: "#64748b",
-                        fontWeight: 500,
+                        fontWeight: 600,
+                        letterSpacing: "0.3px",
+                        textTransform: "uppercase",
                       }}
                     >
                       可用技能 ({filteredSkills.length})
@@ -1059,45 +1416,54 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                         key={skill.name}
                         onClick={() => selectAutocompleteItem(index)}
                         style={{
-                          padding: "8px 12px",
+                          padding: "12px 16px",
                           cursor: "pointer",
-                          background: "transparent",
-                          borderBottom: "1px solid #f8fafc",
+                          background: index === selectedIndex ? "rgba(34,197,94,0.08)" : "transparent",
+                          borderBottom: "1px solid rgba(241,245,249,0.6)",
+                          transition: "all 0.15s ease",
                         }}
                         onMouseEnter={() => setSelectedIndex(index)}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <Tag color="blue" style={{ fontSize: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{
+                            fontSize: 11,
+                            padding: "2px 8px",
+                            borderRadius: 6,
+                            background: "rgba(59,130,246,0.1)",
+                            color: "#2563eb",
+                            fontWeight: 500,
+                          }}>
                             {skill.category}
-                          </Tag>
-                          <Text strong style={{ fontSize: 13 }}>
+                          </span>
+                          <Text strong style={{ fontSize: 14, color: "#1e293b" }}>
                             {skill.name}
                           </Text>
                         </div>
-                        <Text type="secondary" style={{ fontSize: 11, marginLeft: 0 }}>
+                        <Text style={{ fontSize: 12, color: "#64748b", marginTop: 4, display: "block" }}>
                           {skill.description}
                         </Text>
                         {skill.parameters && skill.parameters.length > 0 && (
-                          <div style={{ marginTop: 2 }}>
+                          <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
                             {skill.parameters.slice(0, 3).map((param) => (
-                              <Tag
+                              <span
                                 key={param.name}
                                 style={{
-                                  fontSize: 9,
-                                  padding: "0 4px",
-                                  marginRight: 4,
+                                  fontSize: 10,
+                                  padding: "2px 8px",
+                                  borderRadius: 4,
+                                  background: param.required ? "rgba(239,68,68,0.08)" : "rgba(148,163,184,0.1)",
                                   color: param.required ? "#dc2626" : "#64748b",
-                                  borderColor: param.required ? "#fca5a5" : "#e5e7eb",
+                                  border: param.required ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(148,163,184,0.2)",
                                 }}
                               >
                                 {param.name}
-                                {param.required && "*"}
-                              </Tag>
+                                {param.required && <span style={{ color: "#dc2626" }}>*</span>}
+                              </span>
                             ))}
                             {skill.parameters.length > 3 && (
-                              <Text style={{ fontSize: 9, color: "#94a3b8" }}>
+                              <span style={{ fontSize: 10, color: "#94a3b8" }}>
                                 +{skill.parameters.length - 3}
-                              </Text>
+                              </span>
                             )}
                           </div>
                         )}
@@ -1109,24 +1475,61 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                 {/* 快捷键提示 */}
                 <div
                   style={{
-                    padding: "4px 12px",
-                    background: "transparent",
-                    borderTop: "1px solid #f0f0f0",
-                    fontSize: 10,
+                    padding: "10px 16px",
+                    background: "rgba(248,250,252,0.8)",
+                    borderTop: "1px solid rgba(226,232,240,0.6)",
+                    fontSize: 11,
                     color: "#94a3b8",
                     display: "flex",
-                    gap: 12,
+                    gap: 16,
+                    fontWeight: 500,
                   }}
                 >
-                  <span>↑↓ 选择</span>
-                  <span>↵ 确认</span>
-                  <span>Tab 补全</span>
-                  <span>Esc 关闭</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <kbd style={{
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
+                      fontSize: 10,
+                      fontFamily: "monospace",
+                    }}>↑↓</kbd> 选择
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <kbd style={{
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
+                      fontSize: 10,
+                      fontFamily: "monospace",
+                    }}>↵</kbd> 确认
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <kbd style={{
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
+                      fontSize: 10,
+                      fontFamily: "monospace",
+                    }}>Tab</kbd> 补全
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <kbd style={{
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
+                      fontSize: 10,
+                      fontFamily: "monospace",
+                    }}>Esc</kbd> 关闭
+                  </span>
                 </div>
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
               <TextArea
                 ref={textareaRef}
                 value={input}
@@ -1134,42 +1537,80 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                 onKeyDown={handleKeyDown}
                 placeholder="输入消息... 使用 / 查看命令"
                 rows={2}
-                style={{ flex: 1, resize: "none" }}
+                style={{
+                  flex: 1,
+                  resize: "none",
+                  borderRadius: 10,
+                  border: "1px solid #d1d5db",
+                  background: "#ffffff",
+                  padding: "10px 14px",
+                  fontSize: 14,
+                  lineHeight: 1.5,
+                  transition: "all 0.15s ease",
+                }}
               />
               <Button
                 type="primary"
                 icon={loading ? <LoadingOutlined /> : <SendOutlined />}
                 onClick={handleSend}
                 loading={loading}
-                style={{ height: "auto", minWidth: 56, fontSize: 12 }}
+                disabled={!input.trim()}
+                style={{
+                  height: "auto",
+                  minWidth: 56,
+                  fontSize: 13,
+                  borderRadius: 10,
+                  background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                  border: "none",
+                  boxShadow: "0 4px 14px rgba(99, 102, 241, 0.4)",
+                  transition: "all 0.2s ease",
+                }}
               >
                 发送
               </Button>
             </div>
 
             {/* 快捷命令提示 */}
-            <div style={{ marginTop: 4, fontSize: 10 }}>
-              <Text type="secondary">
-                可用命令: /skill | /help | /clear | /search | /scan | /github | /settings
+            <div style={{ marginTop: 8, fontSize: 11 }}>
+              <Text style={{ color: "#9ca3af" }}>
+                可用命令:{" "}
+                <code style={{ padding: "1px 4px", borderRadius: 4, background: "#f3f4f6", color: "#374151", fontSize: 10 }}>/skill</code>{" "}
+                <code style={{ padding: "1px 4px", borderRadius: 4, background: "#f3f4f6", color: "#374151", fontSize: 10 }}>/help</code>{" "}
+                <code style={{ padding: "1px 4px", borderRadius: 4, background: "#f3f4f6", color: "#374151", fontSize: 10 }}>/clear</code>{" "}
+                <code style={{ padding: "1px 4px", borderRadius: 4, background: "#f3f4f6", color: "#374151", fontSize: 10 }}>/settings</code>
               </Text>
             </div>
           </div>
         </div>
 
-        {/* 右侧：Skill 面板 */}
+        {/* 右侧：Skill 面板 - 扁平化风格 */}
         {showSkillPanel && (
           <div
             style={{
-              width: 240,
-              borderLeft: "1px solid #f0f0f0",
-              paddingLeft: 12,
+              width: 260,
+              borderLeft: "1px solid #e5e7eb",
+              paddingLeft: 16,
               overflow: "auto",
               flexShrink: 0,
             }}
           >
-            <Text type="secondary" style={{ marginBottom: 6, fontSize: 11, fontWeight: 500 }}>
-              <ToolOutlined /> 技能
-            </Text>
+            <div style={{
+              marginBottom: 12,
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#6b7280",
+              letterSpacing: "0.3px",
+              textTransform: "uppercase",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 12px",
+              background: "#f9fafb",
+              borderRadius: 6,
+              border: "1px solid #e5e7eb",
+            }}>
+              <ToolOutlined style={{ fontSize: 14, color: "#6b7280" }} /> 技能
+            </div>
             <SkillList
               onSkillClick={handleSkillSelect}
               showDisabled={false}

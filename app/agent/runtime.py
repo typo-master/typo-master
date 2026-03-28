@@ -1,5 +1,5 @@
 """
-TypeMaster Agent Runtime
+Typo Master Agent Runtime
 
 Bridges product-facing backend APIs with LangGraph-based CoordinatorAgent and
 LLM-backed chat support.
@@ -9,13 +9,15 @@ import asyncio
 import json
 import os
 import re
-import sqlite3
 import yaml
 from pathlib import Path
 from urllib import request as urlrequest
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
+
+import pymysql
+from pymysql.cursors import DictCursor
 
 from src.agents.coordinator_agent import CoordinatorAgent
 from src.agent_framework.logger import get_logger
@@ -340,11 +342,12 @@ class TypeAgentRuntime:
         }
         permissions = get_current_permissions()
         if not is_permission_allowed("api_call", permissions):
-            return {
-                "success": False,
-                "mode": "sql",
-                "error": get_permission_denial_message("api_call"),
-            }
+            if not self._allow_local_mysql_sql_without_api_permission(params):
+                return {
+                    "success": False,
+                    "mode": "sql",
+                    "error": get_permission_denial_message("api_call"),
+                }
         return await self._execute_sql_skill("run_sql", params)
 
     async def execute_skill(
@@ -398,6 +401,13 @@ class TypeAgentRuntime:
             "open_create_issue",
             "open_release_note_builder",
         }
+        web3_skills = {
+            "web3_search_airdrop_projects",
+            "web3_analyze_project",
+            "web3_find_typo_opportunities",
+            "web3_contribute_and_pr",
+            "web3_batch_farm",
+        }
         secret_skills = {"scan_security_secrets", "open_secret_guard"}
         insecure_pattern_skills = {"open_insecure_pattern_scan"}
         dependency_skills = {"scan_dependency_vulns", "open_dependency_audit"}
@@ -408,6 +418,8 @@ class TypeAgentRuntime:
         try:
             if normalized_name in workflow_skills:
                 return await self._execute_workflow_skill(normalized_name, normalized_params)
+            if normalized_name in web3_skills:
+                return await self._execute_web3_skill(normalized_name, normalized_params)
             if normalized_name in secret_skills:
                 return await self._execute_security_pattern_skill(normalized_name, normalized_params, mode="secret")
             if normalized_name in insecure_pattern_skills:
@@ -417,11 +429,12 @@ class TypeAgentRuntime:
             if normalized_name in sql_skills:
                 permission_key = "api_call"
                 if not is_permission_allowed(permission_key):
-                    return {
-                        "success": False,
-                        "mode": "sql",
-                        "error": get_permission_denial_message(permission_key),
-                    }
+                    if not self._allow_local_mysql_sql_without_api_permission(normalized_params):
+                        return {
+                            "success": False,
+                            "mode": "sql",
+                            "error": get_permission_denial_message(permission_key),
+                        }
                 return await self._execute_sql_skill(normalized_name, normalized_params)
             if normalized_name in webhook_skills:
                 permission_key = "api_call"
@@ -565,21 +578,17 @@ class TypeAgentRuntime:
 
         if executor_type in {"sql", "database"}:
             permission_key = "api_call"
-            if not is_permission_allowed(permission_key):
-                return {
-                    "success": False,
-                    "mode": "custom_executor_sql",
-                    "error": get_permission_denial_message(permission_key),
-                }
             merged_params = {**params}
-            if executor.get("database") and not merged_params.get("database"):
-                merged_params["database"] = executor.get("database")
-            if executor.get("query") and not merged_params.get("query"):
-                merged_params["query"] = executor.get("query")
-            if "read_only" in executor and "read_only" not in merged_params:
-                merged_params["read_only"] = executor.get("read_only")
-            if "max_rows" in executor and "max_rows" not in merged_params:
-                merged_params["max_rows"] = executor.get("max_rows")
+            for key in ("host", "port", "user", "password", "database", "query", "read_only", "max_rows"):
+                if key in executor and key not in merged_params:
+                    merged_params[key] = executor.get(key)
+            if not is_permission_allowed(permission_key):
+                if not self._allow_local_mysql_sql_without_api_permission(merged_params):
+                    return {
+                        "success": False,
+                        "mode": "custom_executor_sql",
+                        "error": get_permission_denial_message(permission_key),
+                    }
             sql_result = await self._execute_sql_skill(skill_name, merged_params)
             return {
                 "success": bool(sql_result.get("success", False)),
@@ -701,6 +710,265 @@ class TypeAgentRuntime:
             "result": workflow_result,
             "error": workflow_result.get("error"),
         }
+
+    async def _execute_web3_skill(self, skill_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute Web3 airdrop-related skills."""
+        from src.web3_typo_hunter.discovery.repo_finder import RepoFinder
+        from src.web3_typo_hunter.scanner.typo_scanner import TypoScanner
+        from src.web3_typo_hunter.processor.pr_creator import PRCreator
+        from src.web3_typo_hunter.discovery.repo_manager import RepoManager
+
+        github_token = os.getenv("GITHUB_TOKEN")
+
+        try:
+            if skill_name == "web3_search_airdrop_projects":
+                days = int(params.get("days", 30))
+                min_stars = int(params.get("min_stars", 100))
+                limit = int(params.get("limit", 10))
+
+                finder = RepoFinder(github_token)
+                projects_df = finder.find_potential_airdrop_projects(days, min_stars, limit)
+
+                # Convert DataFrame to list of dicts
+                projects = projects_df.to_dict('records') if not projects_df.empty else []
+
+                return {
+                    "success": True,
+                    "mode": "web3_skill",
+                    "message": f"Found {len(projects)} potential airdrop projects",
+                    "result": {
+                        "total": len(projects),
+                        "projects": projects,
+                    },
+                }
+
+            if skill_name == "web3_analyze_project":
+                owner, repo = self._extract_owner_repo(params)
+                if not owner or not repo:
+                    return {
+                        "success": False,
+                        "mode": "web3_skill",
+                        "error": "owner and repo are required",
+                    }
+
+                finder = RepoFinder(github_token)
+                # Get basic repo info from GitHub API
+                from src.web3_typo_hunter.utils.github_api import GitHubAPI
+                github_api = GitHubAPI(github_token)
+                repo_info = github_api.get_repository(owner, repo)
+
+                if not repo_info:
+                    return {
+                        "success": False,
+                        "mode": "web3_skill",
+                        "error": f"Repository {owner}/{repo} not found",
+                    }
+
+                # Analyze contribution activity
+                analyzed = finder.analyze_repo_contribution(repo_info)
+
+                return {
+                    "success": True,
+                    "mode": "web3_skill",
+                    "message": f"Analyzed {owner}/{repo}",
+                    "result": {
+                        "name": analyzed.get("name"),
+                        "full_name": analyzed.get("full_name"),
+                        "url": analyzed.get("html_url"),
+                        "stars": analyzed.get("stargazers_count"),
+                        "forks": analyzed.get("forks_count"),
+                        "airdrop_potential_score": analyzed.get("airdrop_potential_score", 0),
+                        "recent_prs": analyzed.get("recent_prs", 0),
+                        "recent_merged_prs": analyzed.get("recent_merged_prs", 0),
+                        "pr_acceptance_rate": analyzed.get("pr_acceptance_rate", 0),
+                        "description": analyzed.get("description"),
+                        "topics": analyzed.get("topics", []),
+                    },
+                }
+
+            if skill_name == "web3_find_typo_opportunities":
+                owner, repo = self._extract_owner_repo(params)
+                if not owner or not repo:
+                    return {
+                        "success": False,
+                        "mode": "web3_skill",
+                        "error": "owner and repo are required",
+                    }
+
+                auto_fix = bool(params.get("auto_fix", False))
+
+                # Clone repo
+                repo_manager = RepoManager()
+                clone_result = repo_manager.clone_repo(f"{owner}/{repo}")
+
+                if not clone_result.get("success"):
+                    return {
+                        "success": False,
+                        "mode": "web3_skill",
+                        "error": f"Failed to clone repo: {clone_result.get('error')}",
+                    }
+
+                repo_path = clone_result.get("path")
+
+                # Scan for typos
+                scanner = TypoScanner()
+                scan_results = scanner.scan_repository(repo_path)
+
+                typos_found = scan_results.get("typos", [])
+
+                result = {
+                    "success": True,
+                    "mode": "web3_skill",
+                    "message": f"Found {len(typos_found)} typos in {owner}/{repo}",
+                    "result": {
+                        "owner": owner,
+                        "repo": repo,
+                        "typos_count": len(typos_found),
+                        "typos": typos_found,
+                        "auto_fixed": False,
+                    },
+                }
+
+                # Auto fix if requested
+                if auto_fix and typos_found:
+                    from src.web3_typo_hunter.scanner.typo_fixer import TypoFixer
+                    fixer = TypoFixer()
+                    fix_result = fixer.fix_typos(repo_path, typos_found)
+                    result["result"]["auto_fixed"] = fix_result.get("success", False)
+                    result["result"]["fixed_files"] = fix_result.get("fixed_files", [])
+
+                return result
+
+            if skill_name == "web3_contribute_and_pr":
+                owner, repo = self._extract_owner_repo(params)
+                if not owner or not repo:
+                    return {
+                        "success": False,
+                        "mode": "web3_skill",
+                        "error": "owner and repo are required",
+                    }
+
+                create_pr = bool(params.get("create_pr", True))
+
+                # Step 1: Find typos
+                finder_result = await self._execute_web3_skill("web3_find_typo_opportunities", {
+                    "owner": owner,
+                    "repo": repo,
+                    "auto_fix": True,
+                })
+
+                if not finder_result.get("success"):
+                    return finder_result
+
+                typos_count = finder_result.get("result", {}).get("typos_count", 0)
+
+                if typos_count == 0:
+                    return {
+                        "success": True,
+                        "mode": "web3_skill",
+                        "message": f"No typos found in {owner}/{repo}, no PR needed",
+                        "result": {
+                            "owner": owner,
+                            "repo": repo,
+                            "pr_created": False,
+                            "reason": "No typos to fix",
+                        },
+                    }
+
+                # Step 2: Create PR if requested
+                if create_pr and github_token:
+                    pr_creator = PRCreator(github_token)
+                    repo_manager = RepoManager()
+
+                    # Prepare repo info for PR creation
+                    repo_info = {
+                        "full_name": f"{owner}/{repo}",
+                        "owner": owner,
+                        "repo": repo,
+                        "fixed_files": finder_result.get("result", {}).get("fixed_files", []),
+                        "branch_name": f"fix/typos-{datetime.now().strftime('%Y%m%d')}",
+                    }
+
+                    pr_result = pr_creator.prepare_and_create_pr(repo_info)
+
+                    return {
+                        "success": pr_result.get("pr_created", False),
+                        "mode": "web3_skill",
+                        "message": f"PR created for {owner}/{repo}" if pr_result.get("pr_created") else f"Failed to create PR: {pr_result.get('pr_error')}",
+                        "result": {
+                            "owner": owner,
+                            "repo": repo,
+                            "typos_fixed": typos_count,
+                            "pr_created": pr_result.get("pr_created", False),
+                            "pr_url": pr_result.get("pr_url"),
+                            "pr_number": pr_result.get("pr_number"),
+                            "error": pr_result.get("pr_error"),
+                        },
+                    }
+                else:
+                    return {
+                        "success": True,
+                        "mode": "web3_skill",
+                        "message": f"Fixed {typos_count} typos in {owner}/{repo} (PR creation skipped)",
+                        "result": {
+                            "owner": owner,
+                            "repo": repo,
+                            "typos_fixed": typos_count,
+                            "pr_created": False,
+                            "fixed_files": finder_result.get("result", {}).get("fixed_files", []),
+                        },
+                    }
+
+            if skill_name == "web3_batch_farm":
+                projects = params.get("projects", [])
+                create_prs = bool(params.get("create_prs", True))
+
+                if not projects or not isinstance(projects, list):
+                    return {
+                        "success": False,
+                        "mode": "web3_skill",
+                        "error": "projects must be a list of {owner, repo} objects",
+                    }
+
+                results = []
+                for project in projects:
+                    owner = project.get("owner")
+                    repo = project.get("repo")
+                    if owner and repo:
+                        project_result = await self._execute_web3_skill("web3_contribute_and_pr", {
+                            "owner": owner,
+                            "repo": repo,
+                            "create_pr": create_prs,
+                        })
+                        results.append({
+                            "owner": owner,
+                            "repo": repo,
+                            "result": project_result,
+                        })
+
+                successful = sum(1 for r in results if r["result"].get("success"))
+
+                return {
+                    "success": successful > 0,
+                    "mode": "web3_skill",
+                    "message": f"Batch farm completed: {successful}/{len(projects)} successful",
+                    "result": {
+                        "total": len(projects),
+                        "successful": successful,
+                        "failed": len(projects) - successful,
+                        "details": results,
+                    },
+                }
+
+            return {
+                "success": False,
+                "mode": "web3_skill",
+                "error": f"Unknown Web3 skill: {skill_name}",
+            }
+
+        except Exception as exc:
+            logger.exception("Web3 skill execution failed: %s", skill_name)
+            return {"success": False, "error": str(exc), "mode": "web3_skill"}
 
     @staticmethod
     def _extract_owner_repo(params: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
@@ -914,19 +1182,37 @@ class TypeAgentRuntime:
             },
         }
 
+    @staticmethod
+    def _allow_local_mysql_sql_without_api_permission(params: Optional[Dict[str, Any]] = None) -> bool:
+        payload = params or {}
+        host = str(payload.get("host") or os.getenv("MYSQL_HOST", "127.0.0.1")).strip().lower()
+        return host in {"127.0.0.1", "localhost", "::1"}
+
     async def _execute_sql_skill(self, skill_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        database = str(
-            params.get("database")
-            or params.get("db")
-            or params.get("sqlite_path")
-            or ""
-        ).strip()
+        host = str(params.get("host") or os.getenv("MYSQL_HOST", "127.0.0.1")).strip()
+        port_raw = params.get("port", os.getenv("MYSQL_PORT", "3306"))
+        user = str(params.get("user") or os.getenv("MYSQL_USER", "root")).strip()
+        password = str(params.get("password") or os.getenv("MYSQL_PASSWORD", "nopasswd"))
+        database = str(params.get("database") or params.get("db") or "").strip()
+
+        if not database:
+            database = str(os.getenv("MYSQL_DATABASE", "typomaster")).strip()
+
+        try:
+            port = int(port_raw)
+        except Exception:
+            return {
+                "success": False,
+                "mode": "sql",
+                "error": f"invalid mysql port: {port_raw}",
+            }
+
         query = str(params.get("query") or params.get("sql") or "").strip()
         if not database:
             return {
                 "success": False,
                 "mode": "sql",
-                "error": "database is required. Example: {\"database\":\"./data/app.db\"}",
+                "error": "database is required. Example: {\"database\":\"typomaster\"}",
             }
         if not query:
             return {
@@ -938,12 +1224,12 @@ class TypeAgentRuntime:
         read_only = bool(params.get("read_only", True))
         normalized_sql = query.strip().lower()
         if read_only:
-            allowed_prefixes = ("select", "with", "pragma", "explain")
+            allowed_prefixes = ("select", "with", "show", "describe", "desc", "explain")
             if not normalized_sql.startswith(allowed_prefixes):
                 return {
                     "success": False,
                     "mode": "sql",
-                    "error": "read_only mode only allows SELECT/WITH/PRAGMA/EXPLAIN statements",
+                    "error": "read_only mode only allows SELECT/WITH/SHOW/DESCRIBE/EXPLAIN statements",
                 }
 
         max_rows_raw = params.get("max_rows", 200)
@@ -959,18 +1245,18 @@ class TypeAgentRuntime:
         else:
             args = [args_raw]
 
-        db_path = Path(database).expanduser().resolve()
-        if not db_path.exists():
-            return {
-                "success": False,
-                "mode": "sql",
-                "error": f"database file not found: {db_path}",
-            }
-
         conn = None
         try:
-            conn = sqlite3.connect(str(db_path))
-            conn.row_factory = sqlite3.Row
+            conn = pymysql.connect(
+                host=host,
+                port=port,
+                user=user,
+                password=password,
+                database=database,
+                charset="utf8mb4",
+                cursorclass=DictCursor,
+                autocommit=False,
+            )
             cursor = conn.cursor()
             cursor.execute(query, tuple(args))
             description = cursor.description
@@ -981,7 +1267,9 @@ class TypeAgentRuntime:
                     "mode": "sql",
                     "message": f"{skill_name} query executed",
                     "result": {
-                        "database": str(db_path),
+                        "database": database,
+                        "host": host,
+                        "port": port,
                         "query": query,
                         "row_count": len(rows),
                         "rows": rows,
@@ -996,7 +1284,9 @@ class TypeAgentRuntime:
                 "mode": "sql",
                 "message": f"{skill_name} statement executed",
                 "result": {
-                    "database": str(db_path),
+                    "database": database,
+                    "host": host,
+                    "port": port,
                     "query": query,
                     "affected_rows": affected,
                 },
@@ -1221,7 +1511,7 @@ class TypeAgentRuntime:
             }
 
         system_prompt = (
-            "You are TypeMaster Agent assistant. Help users operate typo-fix agent workflows. "
+            "You are Typo Master Agent assistant. Help users operate typo-fix agent workflows. "
             "Be concise, practical, and execution-oriented."
         )
 

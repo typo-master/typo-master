@@ -118,6 +118,55 @@ BUILTIN_SKILLS: List[Dict[str, Any]] = [
             {"name": "arguments", "type": "object", "required": False, "description": "Tool arguments"},
         ],
     },
+    # Web3 Airdrop Skills
+    {
+        "name": "web3_search_airdrop_projects",
+        "description": "Search for Web3 projects with high airdrop potential",
+        "category": "web3",
+        "parameters": [
+            {"name": "days", "type": "integer", "required": False, "description": "Recent activity days (default: 30)"},
+            {"name": "min_stars", "type": "integer", "required": False, "description": "Minimum stars (default: 100)"},
+            {"name": "limit", "type": "integer", "required": False, "description": "Max results (default: 10)"},
+        ],
+    },
+    {
+        "name": "web3_analyze_project",
+        "description": "Analyze a Web3 project for airdrop potential and contribution opportunities",
+        "category": "web3",
+        "parameters": [
+            {"name": "owner", "type": "string", "required": True, "description": "Repository owner"},
+            {"name": "repo", "type": "string", "required": True, "description": "Repository name"},
+        ],
+    },
+    {
+        "name": "web3_find_typo_opportunities",
+        "description": "Find typo-fix opportunities in Web3 projects for airdrop farming",
+        "category": "web3",
+        "parameters": [
+            {"name": "owner", "type": "string", "required": True, "description": "Repository owner"},
+            {"name": "repo", "type": "string", "required": True, "description": "Repository name"},
+            {"name": "auto_fix", "type": "boolean", "required": False, "description": "Auto fix typos (default: false)"},
+        ],
+    },
+    {
+        "name": "web3_contribute_and_pr",
+        "description": "Complete workflow: find typos, fix them, and create PR for airdrop eligibility",
+        "category": "web3",
+        "parameters": [
+            {"name": "owner", "type": "string", "required": True, "description": "Repository owner"},
+            {"name": "repo", "type": "string", "required": True, "description": "Repository name"},
+            {"name": "create_pr", "type": "boolean", "required": False, "description": "Create PR after fixing (default: true)"},
+        ],
+    },
+    {
+        "name": "web3_batch_farm",
+        "description": "Batch process multiple Web3 projects for airdrop farming",
+        "category": "web3",
+        "parameters": [
+            {"name": "projects", "type": "array", "required": True, "description": "List of {owner, repo} objects"},
+            {"name": "create_prs", "type": "boolean", "required": False, "description": "Create PRs for each (default: true)"},
+        ],
+    },
 ]
 
 MCP_CATALOG_TEMPLATES: List[Dict[str, Any]] = [
@@ -179,20 +228,6 @@ MCP_CATALOG_TEMPLATES: List[Dict[str, Any]] = [
             "env": {"DATABASE_URL": "postgresql://user:pass@localhost:5432/dbname"},
         },
     },
-    {
-        "catalog_id": "sqlite",
-        "name": "SQLite MCP",
-        "description": "Execute SQLite queries via MCP server",
-        "tags": ["sql", "sqlite", "database"],
-        "server": {
-            "id": "sqlite",
-            "name": "SQLite MCP",
-            "transport": "stdio",
-            "command": "npx",
-            "args": ["-y", "@modelcontextprotocol/server-sqlite", "./data/app.db"],
-            "enabled": True,
-        },
-    },
 ]
 
 
@@ -202,7 +237,7 @@ def now_ms() -> int:
 
 class RuntimeRegistry:
     def __init__(self, file_path: Optional[str] = None) -> None:
-        default_path = os.getenv("TYPEMASTER_REGISTRY_PATH", "./agent_states/runtime_registry.json")
+        default_path = os.getenv("TYPOMASTER_REGISTRY_PATH", "./agent_states/runtime_registry.json")
         self.file_path = Path(file_path or default_path).expanduser().resolve()
         self.skills: Dict[str, Dict[str, Any]] = {}
         self.mcp_servers: Dict[str, Dict[str, Any]] = {}
