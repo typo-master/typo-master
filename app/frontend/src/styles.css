@@ -109,13 +109,19 @@ body {
 }
 
 .main-content {
-  padding: 24px;
+  padding: 16px;
   min-height: calc(100vh - 64px - 48px);
   background: transparent;
 }
 
-.main-content:has(.workspace-page .ai-chat-card) {
-  padding: 16px;
+.main-content:has(.workspace-page .ai-chat-card),
+.main-content:has(.workspace-shell) {
+  padding: 0;
+}
+
+.page-layout-workspace .main-content,
+.main-content-workspace {
+  padding: 0;
 }
 
 .main-footer {
@@ -131,14 +137,22 @@ body {
 
 /* 页面容器 */
 .home-page,
-.workspace-page,
 .settings-page {
   max-width: 1400px;
   margin: 0 auto;
 }
 
-.workspace-page:has(.workspace-tabs .ant-tabs-tabpane-active:has(.ai-chat-card)) {
+.workspace-page {
+  width: 100%;
   max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.workspace-page:has(.ai-chat-card) {
+  width: 100%;
+  max-width: none;
+  margin: 0;
   padding: 0;
 }
 
@@ -686,48 +700,60 @@ body {
   border-color: #fca5a5;
 }
 
-/* 工作台 Tab 样式 */
-.workspace-tabs {
-  margin-top: 0;
-}
-
-.workspace-tabs > .ant-tabs-nav {
-  margin-bottom: 12px;
-}
-
-.workspace-tabs > .ant-tabs-nav .ant-tabs-tab {
+/* 工作台布局样式 */
+/* 工作台左侧菜单布局 */
+.workspace-shell {
+  width: 100%;
+  min-height: calc(100vh - 64px - 48px);
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
   background: transparent;
-  border-color: var(--line);
-  border-radius: 4px 4px 0 0;
-  padding: 6px 14px;
+  border: none;
+  border-radius: 0;
+  overflow: hidden;
 }
 
-.workspace-tabs > .ant-tabs-nav .ant-tabs-tab-active {
-  background: #fff;
-  border-color: #22c55e;
-  border-bottom-color: #fff;
+.workspace-side-menu {
+  background: #ffffff !important;
+  border-right: 1px solid #e5e7eb;
+  flex: 0 0 220px !important;
+  width: 220px !important;
+  min-width: 220px !important;
+  max-width: 220px !important;
 }
 
-.workspace-tabs > .ant-tabs-nav .ant-tabs-tab-active .ant-tabs-tab-btn {
-  color: #22c55e;
+.workspace-nav-menu {
+  height: 100%;
+  border-inline-end: none !important;
+  padding-top: 8px;
+}
+
+.workspace-nav-menu .ant-menu-item {
+  margin: 4px 8px !important;
+  border-radius: 6px;
+  height: 40px;
+  line-height: 40px;
+}
+
+.workspace-nav-menu .ant-menu-item-selected {
+  background: #dcfce7 !important;
+  color: #166534 !important;
   font-weight: 600;
 }
 
-.workspace-tabs > .ant-tabs-content {
-  background: #fff;
-  border-radius: 0 4px 4px 4px;
-  min-height: 500px;
+.workspace-main-content {
+  flex: 1;
+  min-width: 0;
+  padding: 12px;
+  background: transparent;
 }
 
-.workspace-tabs > .ant-tabs-content > .ant-tabs-tabpane {
-  padding: 16px;
+.workspace-chat-container {
+  height: calc(100vh - 64px - 48px - 24px);
+  min-height: 560px;
 }
 
-.workspace-tabs > .ant-tabs-content > .ant-tabs-tabpane-active:has(.ai-chat-card) {
-  padding: 0;
-}
-
-/* Skill 列表样式 */
 .skill-list .ant-card {
   margin-bottom: 16px;
 }

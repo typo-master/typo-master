@@ -27,6 +27,7 @@ const { Title, Text } = Typography;
 export default function MainLayout() {
   const location = useLocation();
   const { config } = useConfig();
+  const isWorkspaceRoute = location.pathname.startsWith("/workspace");
   const selectedMenuKey = location.pathname.startsWith("/workspace")
     ? "/workspace"
     : location.pathname.startsWith("/settings")
@@ -59,7 +60,7 @@ export default function MainLayout() {
   ];
 
   return (
-    <Layout className="page-layout">
+    <Layout className={`page-layout${isWorkspaceRoute ? " page-layout-workspace" : ""}`}>
       {/* 顶部导航栏 */}
       <Header className="main-header">
         <div className="header-brand">
@@ -117,7 +118,7 @@ export default function MainLayout() {
         </div>
       </Header>
 
-      <Content className="main-content">
+      <Content className={`main-content${isWorkspaceRoute ? " main-content-workspace" : ""}`}>
         <Outlet />
       </Content>
 

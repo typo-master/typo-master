@@ -1,0 +1,5 @@
+Defaulting to user installation because normal site-packages is not writeable
+ERROR: Could not find a version that satisfies the requirement langchain-mcp-adapters (from versions: none)
+ERROR: No matching distribution found for langchain-mcp-adapters
+WARNING: You are using pip version 21.2.4; however, version 26.0.1 is available.
+You should consider upgrading via the '/Library/Developer/CommandLineTools/usr/bin/python3 -m pip install --upgrade pip' command.

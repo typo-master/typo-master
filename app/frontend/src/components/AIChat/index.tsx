@@ -51,6 +51,8 @@ import {
   MessageOutlined,
   SearchOutlined,
   BulbOutlined,
+  LeftOutlined,
+  RightOutlined,
 } from "@ant-design/icons";
 import { chatStore, getConversationMessages, skillStore, type ChatMessage, type ExecutionStep } from "../../db";
 import { createConversation, sendChatMessage, executeSkill as executeSkillApi } from "../../api";
@@ -156,6 +158,7 @@ export default function AIChat({ agentId = "default", onExecuteSkill }: AIChatPr
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showSkillPanel, setShowSkillPanel] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [historyCollapsed, setHistoryCollapsed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -916,95 +919,126 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
         {/* 左侧：对话历史 - 扁平化风格 */}
         <div
           style={{
-            width: 220,
+            width: historyCollapsed ? 64 : 220,
             borderRight: "1px solid #e5e7eb",
-            paddingRight: 16,
+            paddingRight: historyCollapsed ? 0 : 16,
             display: "flex",
             flexDirection: "column",
             flexShrink: 0,
+            transition: "width 0.2s ease",
           }}
         >
-          <div style={{
-            marginBottom: 16,
-            fontSize: 12,
-            fontWeight: 600,
-            color: "#6b7280",
-            letterSpacing: "0.3px",
-            textTransform: "uppercase",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "10px 12px",
-            background: "#f9fafb",
-            borderRadius: 8,
-            border: "1px solid #e5e7eb",
-          }}>
-            <HistoryOutlined style={{ fontSize: 14, color: "#6b7280" }} /> 历史会话
+          <div
+            style={{
+              marginBottom: historyCollapsed ? 0 : 16,
+              fontSize: 12,
+              fontWeight: 600,
+              color: "#6b7280",
+              letterSpacing: "0.3px",
+              textTransform: "uppercase",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: historyCollapsed ? "center" : "space-between",
+              gap: 8,
+              padding: historyCollapsed ? "10px 6px" : "10px 12px",
+              background: "#f9fafb",
+              borderRadius: 8,
+              border: "1px solid #e5e7eb",
+            }}
+          >
+            {!historyCollapsed ? (
+              <Space size={8}>
+                <HistoryOutlined style={{ fontSize: 14, color: "#6b7280" }} />
+                <span>历史会话</span>
+              </Space>
+            ) : (
+              <HistoryOutlined style={{ fontSize: 14, color: "#6b7280" }} />
+            )}
+            <Tooltip title={historyCollapsed ? "展开历史会话" : "折叠历史会话"}>
+              <Button
+                type="text"
+                size="small"
+                icon={historyCollapsed ? <RightOutlined /> : <LeftOutlined />}
+                onClick={() => setHistoryCollapsed((prev) => !prev)}
+                style={{ width: 24, height: 24, borderRadius: 6, color: "#6b7280" }}
+              />
+            </Tooltip>
           </div>
-          <div style={{ flex: 1, overflow: "auto", padding: "0 4px" }}>
-            {sessions.map((session) => (
-              <div
-                key={session.id}
-                onClick={() => switchConversation(session.id)}
-                style={{
-                  padding: "12px 14px",
-                  cursor: "pointer",
-                  borderRadius: 8,
-                  marginBottom: 6,
-                  background: session.id === conversationId
-                    ? "#dcfce7"
-                    : "transparent",
-                  border: session.id === conversationId
-                    ? "1px solid #86efac"
-                    : "1px solid transparent",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  transition: "all 0.15s ease",
-                }}
-                className="session-item-flat"
-              >
-                <div style={{ flex: 1, overflow: "hidden", minWidth: 0 }}>
-                  <Text strong style={{ fontSize: 13, color: session.id === conversationId ? "#166534" : "#111827", display: "block" }} ellipsis>
-                    {session.title}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: session.id === conversationId ? "#16a34a" : "#9ca3af", marginTop: 2 }} ellipsis>
-                    {session.lastMessage}
-                  </Text>
-                </div>
-                <Popconfirm
-                  title="确认删除该会话？"
-                  description="删除后不可恢复。"
-                  okText="删除"
-                  cancelText="取消"
-                  okButtonProps={{ danger: true }}
-                  onConfirm={(e) => {
-                    e?.stopPropagation?.();
-                    void deleteSession(session.id);
-                  }}
-                  onCancel={(e) => e?.stopPropagation?.()}
-                >
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<DeleteOutlined />}
-                    onClick={(e) => e.stopPropagation()}
-                    danger
+
+          {!historyCollapsed && (
+            <div style={{ flex: 1, overflow: "auto", padding: "0 4px" }}>
+              {sessions.length === 0 ? (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description="暂无历史会话"
+                  style={{ marginTop: 24 }}
+                />
+              ) : (
+                sessions.map((session) => (
+                  <div
+                    key={session.id}
+                    onClick={() => switchConversation(session.id)}
                     style={{
-                      padding: "4px 8px",
-                      minWidth: 28,
-                      height: 28,
-                      borderRadius: 6,
-                      opacity: 0,
+                      padding: "12px 14px",
+                      cursor: "pointer",
+                      borderRadius: 8,
+                      marginBottom: 6,
+                      background: session.id === conversationId
+                        ? "#dcfce7"
+                        : "transparent",
+                      border: session.id === conversationId
+                        ? "1px solid #86efac"
+                        : "1px solid transparent",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 10,
                       transition: "all 0.15s ease",
                     }}
-                    className="session-delete-btn-flat"
-                  />
-                </Popconfirm>
-              </div>
-            ))}
-          </div>
+                    className="session-item-flat"
+                  >
+                    <div style={{ flex: 1, overflow: "hidden", minWidth: 0 }}>
+                      <Text strong style={{ fontSize: 13, color: session.id === conversationId ? "#166534" : "#111827", display: "block" }} ellipsis>
+                        {session.title}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: session.id === conversationId ? "#16a34a" : "#9ca3af", marginTop: 2 }} ellipsis>
+                        {session.lastMessage}
+                      </Text>
+                    </div>
+                    <Popconfirm
+                      title="确认删除该会话？"
+                      description="删除后不可恢复。"
+                      okText="删除"
+                      cancelText="取消"
+                      okButtonProps={{ danger: true }}
+                      onConfirm={(e) => {
+                        e?.stopPropagation?.();
+                        void deleteSession(session.id);
+                      }}
+                      onCancel={(e) => e?.stopPropagation?.()}
+                    >
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<DeleteOutlined />}
+                        onClick={(e) => e.stopPropagation()}
+                        danger
+                        style={{
+                          padding: "4px 8px",
+                          minWidth: 28,
+                          height: 28,
+                          borderRadius: 6,
+                          opacity: 0,
+                          transition: "all 0.15s ease",
+                        }}
+                        className="session-delete-btn-flat"
+                      />
+                    </Popconfirm>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         {/* 中间：聊天区域 */}

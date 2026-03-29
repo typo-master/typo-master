@@ -19,9 +19,9 @@ import {
   Empty,
   Statistic,
   Timeline,
-  Tabs,
   Avatar,
-  Tooltip,
+  Menu,
+  Layout,
 } from "antd";
 import {
   PlayCircleOutlined,
@@ -60,7 +60,7 @@ import { skillStore, chatStore, triggerStore, logStore, type AgentSkill } from "
 import type { WorkflowRequest, WorkflowTaskResponse } from "../types";
 
 const { Title, Text, Paragraph } = Typography;
-const { TabPane } = Tabs;
+const { Sider, Content } = Layout;
 const WORKSPACE_TABS = ["chat", "skills", "mcp", "triggers", "tasks"] as const;
 type WorkspaceTabKey = (typeof WORKSPACE_TABS)[number];
 const WORKSPACE_TAB_SET = new Set<WorkspaceTabKey>(WORKSPACE_TABS);
@@ -214,6 +214,44 @@ export default function WorkspacePage() {
 
   const statusInfo = task ? statusConfig[task.status] : null;
 
+  const workspaceMenuItems = useMemo(
+    () => [
+      {
+        key: "chat",
+        icon: <MessageOutlined />,
+        label: "AI 对话",
+      },
+      {
+        key: "skills",
+        icon: <ToolOutlined />,
+        label: "Skill 技能",
+      },
+      {
+        key: "mcp",
+        icon: <ApiOutlined />,
+        label: "MCP 服务",
+      },
+      {
+        key: "triggers",
+        icon: <ScheduleOutlined />,
+        label: "定时触发器",
+      },
+      {
+        key: "tasks",
+        icon: <FireOutlined />,
+        label: (
+          <Space size={6}>
+            任务执行
+            {task && (task.status === "queued" || task.status === "running") && (
+              <Badge status="processing" />
+            )}
+          </Space>
+        ),
+      },
+    ],
+    [task]
+  );
+
   return (
     <div className="workspace-page">
       {/* 顶部统计栏 - 仅在非聊天 tab 显示 */}
@@ -287,390 +325,349 @@ export default function WorkspacePage() {
       )}
 
       {/* 主内容区 */}
-      <Tabs
-        activeKey={activeTab}
-        onChange={handleTabChange}
-        type="card"
-        className="workspace-tabs"
-        size="small"
-      >
-        {/* AI 对话 Tab */}
-        <TabPane
-          tab={
-            <Space size={4}>
-              <MessageOutlined />
-              AI 对话
-            </Space>
-          }
-          key="chat"
-          style={{ padding: 0 }}
-        >
-          <div style={{ height: "calc(100vh - 180px)", margin: -16 }}>
-            <AIChat
-              agentId="default"
-              onExecuteSkill={handleExecuteSkill}
-            />
-          </div>
-        </TabPane>
+      <Layout className="workspace-shell">
+        <Sider width={220} className="workspace-side-menu" theme="light">
+          <Menu
+            mode="inline"
+            selectedKeys={[activeTab]}
+            items={workspaceMenuItems}
+            onClick={({ key }) => handleTabChange(key)}
+            className="workspace-nav-menu"
+          />
+        </Sider>
+        <Content className="workspace-main-content">
+          {/* AI 对话 */}
+          {activeTab === "chat" && (
+            <div className="workspace-chat-container">
+              <AIChat
+                agentId="default"
+                onExecuteSkill={handleExecuteSkill}
+              />
+            </div>
+          )}
 
-        {/* Skill 系统 Tab */}
-        <TabPane
-          tab={
-            <Space size={4}>
-              <ToolOutlined />
-              Skill 技能
-            </Space>
-          }
-          key="skills"
-        >
-          <Row gutter={[16, 16]}>
-            <Col xs={24} lg={16}>
-              <Card
-                title={
-                  <Space>
-                    <ThunderboltOutlined />
-                    可用技能
-                    <Badge count={stats.skills} color="#22c55e" />
+          {/* Skill 系统 */}
+          {activeTab === "skills" && (
+            <Row gutter={[16, 16]}>
+              <Col xs={24} lg={16}>
+                <Card
+                  title={
+                    <Space>
+                      <ThunderboltOutlined />
+                      可用技能
+                      <Badge count={stats.skills} color="#22c55e" />
+                    </Space>
+                  }
+                  className="flat-card"
+                >
+                  <SkillList showDisabled={false} />
+                </Card>
+              </Col>
+              <Col xs={24} lg={8}>
+                <Card
+                  title={
+                    <Space>
+                      <CodeOutlined />
+                      使用说明
+                    </Space>
+                  }
+                  className="flat-card"
+                >
+                  <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                    <div>
+                      <Text strong>1. 通过对话调用</Text>
+                      <Paragraph type="secondary">
+                        在 AI 对话中输入 <Text code>/skill 技能名</Text> 来调用技能
+                      </Paragraph>
+                    </div>
+                    <div>
+                      <Text strong>2. 参数传递</Text>
+                      <Paragraph type="secondary">
+                        支持 JSON 格式参数，例如:
+                        <br />
+                        <Text code>/skill scan_typo {"{"}path: "./src"{"}"}</Text>
+                      </Paragraph>
+                    </div>
+                    <div>
+                      <Text strong>3. 定时触发</Text>
+                      <Paragraph type="secondary">
+                        在触发器管理中设置定时任务，自动触发技能执行
+                      </Paragraph>
+                    </div>
+                    <Divider />
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      当前支持 {stats.skills} 个技能，可在下方开关启用或禁用
+                    </Text>
                   </Space>
-                }
-                className="flat-card"
-              >
-                <SkillList showDisabled={false} />
-              </Card>
-            </Col>
-            <Col xs={24} lg={8}>
-              <Card
-                title={
-                  <Space>
-                    <CodeOutlined />
-                    使用说明
-                  </Space>
-                }
-                className="flat-card"
-              >
-                <Space direction="vertical" size={16} style={{ width: "100%" }}>
-                  <div>
-                    <Text strong>1. 通过对话调用</Text>
-                    <Paragraph type="secondary">
-                      在 AI 对话中输入 <Text code>/skill 技能名</Text> 来调用技能
-                    </Paragraph>
-                  </div>
-                  <div>
-                    <Text strong>2. 参数传递</Text>
-                    <Paragraph type="secondary">
-                      支持 JSON 格式参数，例如:
-                      <br />
-                      <Text code>/skill scan_typo {"{"}path: "./src"{"}"}</Text>
-                    </Paragraph>
-                  </div>
-                  <div>
-                    <Text strong>3. 定时触发</Text>
-                    <Paragraph type="secondary">
-                      在触发器管理中设置定时任务，自动触发技能执行
-                    </Paragraph>
-                  </div>
-                  <Divider />
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    当前支持 {stats.skills} 个技能，可在下方开关启用或禁用
-                  </Text>
-                </Space>
-              </Card>
-            </Col>
-          </Row>
-        </TabPane>
+                </Card>
+              </Col>
+            </Row>
+          )}
 
-        <TabPane
-          tab={
-            <Space size={4}>
-              <ApiOutlined />
-              MCP 服务
-            </Space>
-          }
-          key="mcp"
-        >
-          <MCPManager />
-        </TabPane>
+          {activeTab === "mcp" && <MCPManager />}
 
-        {/* 触发器 Tab */}
-        <TabPane
-          tab={
-            <Space size={4}>
-              <ScheduleOutlined />
-              定时触发器
-            </Space>
-          }
-          key="triggers"
-        >
-          <TriggerManager onTriggerExecute={handleTriggerExecute} />
-        </TabPane>
+          {/* 触发器 */}
+          {activeTab === "triggers" && (
+            <TriggerManager onTriggerExecute={handleTriggerExecute} />
+          )}
 
-        {/* 任务执行 Tab */}
-        <TabPane
-          tab={
-            <Space size={4}>
-              <FireOutlined />
-              任务执行
-              {task && (task.status === "queued" || task.status === "running") && (
-                <Badge status="processing" />
-              )}
-            </Space>
-          }
-          key="tasks"
-        >
-          <Row gutter={[16, 16]}>
-            {/* 左侧：任务配置 */}
-            <Col xs={24} lg={12}>
-              <Card
-                className="flat-card"
-                title={
-                  <Space>
-                    <PlayCircleOutlined />
-                    <span>运行扫描任务</span>
-                  </Space>
-                }
-              >
-                {!config.githubToken && (
-                  <Alert
-                    type="warning"
-                    showIcon
-                    message="GitHub Token 未配置"
-                    description="请在设置页面配置 GitHub Token 后才能运行扫描任务"
-                    style={{ marginBottom: 16 }}
-                  />
-                )}
+          {/* 任务执行 */}
+          {activeTab === "tasks" && (
+            <Row gutter={[16, 16]}>
+              {/* 左侧：任务配置 */}
+              <Col xs={24} lg={12}>
+                <Card
+                  className="flat-card"
+                  title={
+                    <Space>
+                      <PlayCircleOutlined />
+                      <span>运行扫描任务</span>
+                    </Space>
+                  }
+                >
+                  {!config.githubToken && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      message="GitHub Token 未配置"
+                      description="请在设置页面配置 GitHub Token 后才能运行扫描任务"
+                      style={{ marginBottom: 16 }}
+                    />
+                  )}
 
-                <Form form={workflowForm} layout="vertical" onFinish={handleRunWorkflow}>
-                  <Row gutter={16}>
-                    <Col xs={24} md={12}>
-                      <Form.Item
-                        label={
-                          <Space>
-                            <GithubOutlined />
-                            <span>仓库所有者 (Owner)</span>
-                          </Space>
-                        }
-                        name="owner"
-                        rules={[{ required: true, message: "请输入仓库所有者" }]}
-                      >
-                        <Input prefix={<UserOutlined />} placeholder="例如: octocat" />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} md={12}>
-                      <Form.Item
-                        label={
-                          <Space>
-                            <AppstoreOutlined />
-                            <span>仓库名称 (Repo)</span>
-                          </Space>
-                        }
-                        name="repo"
-                        rules={[{ required: true, message: "请输入仓库名称" }]}
-                      >
-                        <Input prefix={<GithubOutlined />} placeholder="例如: Hello-World" />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-
-                  <Row gutter={16}>
-                    <Col xs={24} md={8}>
-                      <Form.Item
-                        label={
-                          <Space>
-                            <CalendarOutlined />
-                            <span>时间范围 (天)</span>
-                          </Space>
-                        }
-                        name="days"
-                      >
-                        <InputNumber min={1} style={{ width: "100%" }} />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} md={8}>
-                      <Form.Item
-                        label={
-                          <Space>
-                            <StarOutlined />
-                            <span>最小星标数</span>
-                          </Space>
-                        }
-                        name="min_stars"
-                      >
-                        <InputNumber min={0} style={{ width: "100%" }} />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} md={8}>
-                      <Form.Item
-                        label={
-                          <Space>
-                            <FileTextOutlined />
-                            <span>扫描数量限制</span>
-                          </Space>
-                        }
-                        name="limit"
-                      >
-                        <InputNumber min={1} style={{ width: "100%" }} />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-
-                  <Form.Item
-                    label={
-                      <Space>
-                        <PullRequestOutlined />
-                        <span>自动创建 PR</span>
-                      </Space>
-                    }
-                    name="create_pr"
-                    valuePropName="checked"
-                  >
-                    <Switch checkedChildren="开启" unCheckedChildren="关闭" />
-                  </Form.Item>
-
-                  <Space>
-                    <Button
-                      type="primary"
-                      htmlType="submit"
-                      loading={workflowLoading}
-                      icon={<PlayCircleOutlined />}
-                      size="large"
-                      disabled={!config.githubToken}
-                    >
-                      {workflowLoading ? "启动中..." : "开始扫描"}
-                    </Button>
-                    <Button
-                      onClick={refreshTask}
-                      disabled={!taskId}
-                      icon={<ReloadOutlined />}
-                    >
-                      刷新状态
-                    </Button>
-                  </Space>
-                </Form>
-
-                <Divider />
-
-                {/* 任务状态显示 */}
-                {task ? (
-                  <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                  <Form form={workflowForm} layout="vertical" onFinish={handleRunWorkflow}>
                     <Row gutter={16}>
-                      <Col span={12}>
-                        <Card size="small">
-                          <Statistic
-                            title="任务ID"
-                            value={task.task_id.slice(0, 12) + "..."}
-                            valueStyle={{ fontSize: 12 }}
-                          />
-                        </Card>
+                      <Col xs={24} md={12}>
+                        <Form.Item
+                          label={
+                            <Space>
+                              <GithubOutlined />
+                              <span>仓库所有者 (Owner)</span>
+                            </Space>
+                          }
+                          name="owner"
+                          rules={[{ required: true, message: "请输入仓库所有者" }]}
+                        >
+                          <Input prefix={<UserOutlined />} placeholder="例如: octocat" />
+                        </Form.Item>
                       </Col>
-                      <Col span={12}>
-                        <Card size="small">
-                          <div className="status-display">
-                            <Text type="secondary">状态</Text>
-                            <br />
-                            {statusInfo && (
-                              <Tag
-                                icon={statusInfo.icon}
-                                color={statusInfo.color as any}
-                                style={{ fontSize: 14, padding: "4px 12px" }}
-                              >
-                                {statusInfo.text}
-                              </Tag>
-                            )}
-                          </div>
-                        </Card>
+                      <Col xs={24} md={12}>
+                        <Form.Item
+                          label={
+                            <Space>
+                              <AppstoreOutlined />
+                              <span>仓库名称 (Repo)</span>
+                            </Space>
+                          }
+                          name="repo"
+                          rules={[{ required: true, message: "请输入仓库名称" }]}
+                        >
+                          <Input prefix={<GithubOutlined />} placeholder="例如: Hello-World" />
+                        </Form.Item>
                       </Col>
                     </Row>
 
-                    {(task.status === "queued" || task.status === "running") && (
-                      <Progress
-                        percent={task.status === "running" ? 50 : 10}
-                        status="active"
-                        strokeColor="#22c55e"
-                      />
-                    )}
-
-                    {task.error && (
-                      <Alert
-                        type="error"
-                        showIcon
-                        icon={<CloseCircleOutlined />}
-                        message="任务执行出错"
-                        description={task.error}
-                      />
-                    )}
-
-                    {task.result && (
-                      <Card
-                        size="small"
-                        title={
-                          <Space>
-                            <FileTextOutlined />
-                            <span>执行结果</span>
-                          </Space>
-                        }
-                        className="result-card"
-                      >
-                        <pre className="result-box">{JSON.stringify(task.result, null, 2)}</pre>
-                      </Card>
-                    )}
-                  </Space>
-                ) : (
-                  <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="暂无运行中的任务"
-                  />
-                )}
-              </Card>
-            </Col>
-
-            {/* 右侧：任务历史 */}
-            <Col xs={24} lg={12}>
-              <Card
-                className="flat-card"
-                title={
-                  <Space>
-                    <CheckOutlined />
-                    <span>任务历史</span>
-                  </Space>
-                }
-              >
-                {taskHistory.length === 0 ? (
-                  <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="暂无任务历史"
-                  />
-                ) : (
-                  <Timeline mode="left">
-                    {taskHistory.map((t) => {
-                      const s = statusConfig[t.status];
-                      return (
-                        <Timeline.Item
-                          key={t.task_id}
-                          dot={s?.icon}
-                          color={s?.color as any}
-                          label={new Date(t.created_at).toLocaleString()}
+                    <Row gutter={16}>
+                      <Col xs={24} md={8}>
+                        <Form.Item
+                          label={
+                            <Space>
+                              <CalendarOutlined />
+                              <span>时间范围 (天)</span>
+                            </Space>
+                          }
+                          name="days"
                         >
-                          <Space direction="vertical" size={4} style={{ width: "100%" }}>
-                            <Text strong>任务: {t.task_id.slice(0, 8)}...</Text>
-                            <Tag icon={s?.icon} color={s?.color as any}>
-                              {s?.text}
-                            </Tag>
-                            {t.error && (
-                              <Text type="danger" style={{ fontSize: 12 }}>
-                                错误: {t.error}
-                              </Text>
-                            )}
-                          </Space>
-                        </Timeline.Item>
-                      );
-                    })}
-                  </Timeline>
-                )}
-              </Card>
-            </Col>
-          </Row>
-        </TabPane>
-      </Tabs>
+                          <InputNumber min={1} style={{ width: "100%" }} />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} md={8}>
+                        <Form.Item
+                          label={
+                            <Space>
+                              <StarOutlined />
+                              <span>最小星标数</span>
+                            </Space>
+                          }
+                          name="min_stars"
+                        >
+                          <InputNumber min={0} style={{ width: "100%" }} />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} md={8}>
+                        <Form.Item
+                          label={
+                            <Space>
+                              <FileTextOutlined />
+                              <span>扫描数量限制</span>
+                            </Space>
+                          }
+                          name="limit"
+                        >
+                          <InputNumber min={1} style={{ width: "100%" }} />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+
+                    <Form.Item
+                      label={
+                        <Space>
+                          <PullRequestOutlined />
+                          <span>自动创建 PR</span>
+                        </Space>
+                      }
+                      name="create_pr"
+                      valuePropName="checked"
+                    >
+                      <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+                    </Form.Item>
+
+                    <Space>
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        loading={workflowLoading}
+                        icon={<PlayCircleOutlined />}
+                        size="large"
+                        disabled={!config.githubToken}
+                      >
+                        {workflowLoading ? "启动中..." : "开始扫描"}
+                      </Button>
+                      <Button
+                        onClick={refreshTask}
+                        disabled={!taskId}
+                        icon={<ReloadOutlined />}
+                      >
+                        刷新状态
+                      </Button>
+                    </Space>
+                  </Form>
+
+                  <Divider />
+
+                  {/* 任务状态显示 */}
+                  {task ? (
+                    <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                      <Row gutter={16}>
+                        <Col span={12}>
+                          <Card size="small">
+                            <Statistic
+                              title="任务ID"
+                              value={task.task_id.slice(0, 12) + "..."}
+                              valueStyle={{ fontSize: 12 }}
+                            />
+                          </Card>
+                        </Col>
+                        <Col span={12}>
+                          <Card size="small">
+                            <div className="status-display">
+                              <Text type="secondary">状态</Text>
+                              <br />
+                              {statusInfo && (
+                                <Tag
+                                  icon={statusInfo.icon}
+                                  color={statusInfo.color as any}
+                                  style={{ fontSize: 14, padding: "4px 12px" }}
+                                >
+                                  {statusInfo.text}
+                                </Tag>
+                              )}
+                            </div>
+                          </Card>
+                        </Col>
+                      </Row>
+
+                      {(task.status === "queued" || task.status === "running") && (
+                        <Progress
+                          percent={task.status === "running" ? 50 : 10}
+                          status="active"
+                          strokeColor="#22c55e"
+                        />
+                      )}
+
+                      {task.error && (
+                        <Alert
+                          type="error"
+                          showIcon
+                          icon={<CloseCircleOutlined />}
+                          message="任务执行出错"
+                          description={task.error}
+                        />
+                      )}
+
+                      {task.result && (
+                        <Card
+                          size="small"
+                          title={
+                            <Space>
+                              <FileTextOutlined />
+                              <span>执行结果</span>
+                            </Space>
+                          }
+                          className="result-card"
+                        >
+                          <pre className="result-box">{JSON.stringify(task.result, null, 2)}</pre>
+                        </Card>
+                      )}
+                    </Space>
+                  ) : (
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description="暂无运行中的任务"
+                    />
+                  )}
+                </Card>
+              </Col>
+
+              {/* 右侧：任务历史 */}
+              <Col xs={24} lg={12}>
+                <Card
+                  className="flat-card"
+                  title={
+                    <Space>
+                      <CheckOutlined />
+                      <span>任务历史</span>
+                    </Space>
+                  }
+                >
+                  {taskHistory.length === 0 ? (
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description="暂无任务历史"
+                    />
+                  ) : (
+                    <Timeline mode="left">
+                      {taskHistory.map((t) => {
+                        const s = statusConfig[t.status];
+                        return (
+                          <Timeline.Item
+                            key={t.task_id}
+                            dot={s?.icon}
+                            color={s?.color as any}
+                            label={new Date(t.created_at).toLocaleString()}
+                          >
+                            <Space direction="vertical" size={4} style={{ width: "100%" }}>
+                              <Text strong>任务: {t.task_id.slice(0, 8)}...</Text>
+                              <Tag icon={s?.icon} color={s?.color as any}>
+                                {s?.text}
+                              </Tag>
+                              {t.error && (
+                                <Text type="danger" style={{ fontSize: 12 }}>
+                                  错误: {t.error}
+                                </Text>
+                              )}
+                            </Space>
+                          </Timeline.Item>
+                        );
+                      })}
+                    </Timeline>
+                  )}
+                </Card>
+              </Col>
+            </Row>
+          )}
+        </Content>
+      </Layout>
     </div>
   );
 }
