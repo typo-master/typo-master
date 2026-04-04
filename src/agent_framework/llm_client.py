@@ -264,3 +264,189 @@ class OpenAICompatibleResponsesClient:
                         return content.strip()
 
         return ""
+
+    # =========================================================================
+    # Phase 2 & 3 Extension Methods
+    # =========================================================================
+
+    async def translate(
+        self,
+        text: str,
+        source_lang: str,
+        target_lang: str
+    ) -> str:
+        """
+        Translate text using LLM.
+
+        Args:
+            text: Text to translate
+            source_lang: Source language code
+            target_lang: Target language code
+
+        Returns:
+            Translated text
+        """
+        system_prompt = """You are a professional translator. Translate the given text while:
+1. Preserving markdown formatting and code blocks
+2. Not translating code, only natural language text
+3. Maintaining the original structure and style"""
+
+        user_prompt = f"""Translate the following text from {source_lang} to {target_lang}:
+
+{text}
+
+Translation:"""
+
+        result = self.generate_text(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=0.3
+        )
+
+        if result.get("success"):
+            return result.get("text", "").strip()
+        return ""
+
+    async def analyze_issue(
+        self,
+        title: str,
+        body: str,
+        labels: list
+    ) -> dict:
+        """
+        Analyze a GitHub Issue using LLM.
+
+        Args:
+            title: Issue title
+            body: Issue body
+            labels: List of labels
+
+        Returns:
+            Analysis result dictionary
+        """
+        system_prompt = """You are a code contribution assistant. Analyze GitHub issues and provide structured assessments.
+Respond with valid JSON only."""
+
+        user_prompt = f"""Analyze the following GitHub Issue:
+
+Title: {title}
+Body: {body}
+Labels: {', '.join(labels)}
+
+Provide a JSON response with these fields:
+- difficulty: one of [beginner, intermediate, advanced, expert]
+- type: one of [bug, feature, documentation, other]
+- skills_required: list of required skills
+- estimated_hours: estimated hours to complete (number)
+- description_summary: brief summary of the issue
+
+JSON:"""
+
+        result = self.generate_text(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=0.3,
+            max_output_tokens=500
+        )
+
+        if not result.get("success"):
+            return self._default_issue_analysis()
+
+        content = result.get("text", "").strip()
+        return self._parse_json_response(content, self._default_issue_analysis())
+
+    async def generate_strategy(
+        self,
+        repo_name: str,
+        repo_description: str,
+        issues_summary: list
+    ) -> dict:
+        """
+        Generate contribution strategy using LLM.
+
+        Args:
+            repo_name: Repository name
+            repo_description: Repository description
+            issues_summary: List of issue summaries
+
+        Returns:
+            Strategy dictionary
+        """
+        system_prompt = """You are an open source contribution advisor. Help new contributors find the best way to start contributing.
+Respond with valid JSON only."""
+
+        issues_text = "\n".join([
+            f"- #{i.get('number', 'N/A')}: {i.get('title', 'Unknown')} ({i.get('type', 'unknown')}, {i.get('difficulty', 'unknown')})"
+            for i in issues_summary[:5]
+        ])
+
+        user_prompt = f"""Generate a contribution strategy for a new contributor:
+
+Repository: {repo_name}
+Description: {repo_description}
+
+Available Issues:
+{issues_text}
+
+Provide a JSON response with:
+- approach: overall approach description
+- priority: one of [low, medium, high]
+- steps: list of actionable steps
+
+JSON:"""
+
+        result = self.generate_text(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=0.4,
+            max_output_tokens=500
+        )
+
+        if not result.get("success"):
+            return self._default_strategy()
+
+        content = result.get("text", "").strip()
+        return self._parse_json_response(content, self._default_strategy())
+
+    def _parse_json_response(self, content: str, default: dict) -> dict:
+        """Parse JSON response with fallback to default."""
+        import json
+        import re
+
+        try:
+            # Try direct parsing
+            return json.loads(content)
+        except json.JSONDecodeError:
+            pass
+
+        # Try extracting from code block
+        try:
+            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)```', content)
+            if json_match:
+                return json.loads(json_match.group(1))
+        except json.JSONDecodeError:
+            pass
+
+        return default
+
+    def _default_issue_analysis(self) -> dict:
+        """Default issue analysis result."""
+        return {
+            "difficulty": "intermediate",
+            "type": "other",
+            "skills_required": [],
+            "estimated_hours": 4,
+            "description_summary": "Unable to analyze"
+        }
+
+    def _default_strategy(self) -> dict:
+        """Default contribution strategy."""
+        return {
+            "approach": "Start with documentation issues to understand the project",
+            "priority": "medium",
+            "steps": [
+                "Read CONTRIBUTING.md",
+                "Find good first issues",
+                "Comment to claim"
+            ]
+        }
