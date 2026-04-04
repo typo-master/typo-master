@@ -72,6 +72,29 @@ def parse_args():
     cap_parser = subparsers.add_parser("capabilities", help="查看 Type Agent 当前能力")
     cap_parser.add_argument("--token", type=str, required=False, help="可选 GitHub Token，用于后续联网能力验证")
 
+    # 'translate' 子命令 - 翻译文档
+    translate_parser = subparsers.add_parser("translate", help="翻译仓库 README 文档")
+    translate_parser.add_argument("--token", type=str, required=True, help="GitHub API令牌")
+    translate_parser.add_argument("--repo", type=str, required=True, help="仓库完整名称 (owner/repo)")
+    translate_parser.add_argument("--target-lang", type=str, default="zh", help="目标语言代码 (默认: zh)")
+
+    # 'find-issues' 子命令 - 查找 Issues
+    find_issues_parser = subparsers.add_parser("find-issues", help="查找仓库中的可贡献 Issues")
+    find_issues_parser.add_argument("--token", type=str, required=True, help="GitHub API令牌")
+    find_issues_parser.add_argument("--repo", type=str, required=True, help="仓库完整名称 (owner/repo)")
+    find_issues_parser.add_argument("--limit", type=int, default=30, help="最大 Issue 数量 (默认: 30)")
+
+    # 'find-contributions' 子命令 - 批量查找贡献机会
+    find_contributions_parser = subparsers.add_parser("find-contributions", help="批量查找多个仓库的贡献机会")
+    find_contributions_parser.add_argument("--token", type=str, required=True, help="GitHub API令牌")
+    find_contributions_parser.add_argument(
+        "--repos",
+        nargs="+",
+        required=True,
+        help="仓库列表 (空格分隔，如: owner/repo1 owner/repo2)"
+    )
+    find_contributions_parser.add_argument("--limit", type=int, default=10, help="每个仓库最大 Issue 数量 (默认: 10)")
+
     args = parser.parse_args()
 
     # 如果没有指定命令，显示帮助
@@ -220,6 +243,13 @@ async def main_async():
         await run_llm_check_command()
     elif args.command == "capabilities":
         await run_capabilities_command(args)
+    # New Phase 2 & 3 commands
+    elif args.command == "translate":
+        await run_translate_command(args)
+    elif args.command == "find-issues":
+        await run_find_issues_command(args)
+    elif args.command == "find-contributions":
+        await run_find_contributions_command(args)
     else:
         logger.error(f"未知命令: {args.command}")
 
@@ -240,3 +270,107 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ============================================================================
+# Phase 2 & 3 New Command Handlers
+# ============================================================================
+
+async def run_translate_command(args):
+    """执行 translate 命令"""
+    logger.info("=== 翻译文档 ===")
+    logger.info(f"仓库: {args.repo}, 目标语言: {args.target_lang}")
+
+    coordinator = CoordinatorAgent(github_token=args.token)
+    await coordinator.initialize()
+    await coordinator.start()
+
+    try:
+        result = await coordinator.process_task({
+            "type": "translate_document",
+            "repo": args.repo,
+            "target_lang": args.target_lang
+        })
+
+        if result.get("success"):
+            logger.info(f"✅ 翻译成功!")
+            logger.info(f"目标文件: {result.get('target_filename')}")
+            # 保存翻译内容到文件
+            output_file = f"{args.repo.replace('/', '_')}_README.{args.target_lang}.md"
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(result.get("translated_content", ""))
+            logger.info(f"翻译内容已保存到: {output_file}")
+        else:
+            logger.error(f"❌ 翻译失败: {result.get('error')}")
+
+    finally:
+        await coordinator.stop()
+
+
+async def run_find_issues_command(args):
+    """执行 find-issues 命令"""
+    logger.info("=== 查找 Issues ===")
+    logger.info(f"仓库: {args.repo}, 限制: {args.limit}")
+
+    coordinator = CoordinatorAgent(github_token=args.token)
+    await coordinator.initialize()
+    await coordinator.start()
+
+    try:
+        result = await coordinator.process_task({
+            "type": "find_issues",
+            "repo": args.repo,
+            "limit": args.limit
+        })
+
+        if result.get("success"):
+            issues = result.get("issues", [])
+            logger.info(f"✅ 找到 {len(issues)} 个 Issues")
+
+            # 输出推荐的 Issues
+            recommended = [i for i in issues if i.get("recommended")]
+            if recommended:
+                logger.info(f"\n⭐ 推荐 Issues ({len(recommended)} 个):")
+                for issue in recommended[:10]:
+                    analysis = issue.get("analysis", {})
+                    logger.info(f"  #{issue['issue_number']}: {issue['title']}")
+                    logger.info(f"     难度: {analysis.get('difficulty', 'unknown')}, 分数: {issue.get('score', 0)}")
+        else:
+            logger.error(f"❌ 查找失败: {result.get('error')}")
+
+    finally:
+        await coordinator.stop()
+
+
+async def run_find_contributions_command(args):
+    """执行 find-contributions 命令"""
+    logger.info("=== 批量查找贡献机会 ===")
+    logger.info(f"仓库列表: {', '.join(args.repos)}")
+
+    coordinator = CoordinatorAgent(github_token=args.token)
+    await coordinator.initialize()
+    await coordinator.start()
+
+    try:
+        result = await coordinator.process_task({
+            "type": "batch_find_contributions",
+            "repos": args.repos,
+            "limit": args.limit
+        })
+
+        if result.get("success"):
+            opportunities = result.get("opportunities", [])
+            logger.info(f"✅ 找到 {len(opportunities)} 个贡献机会")
+
+            # 输出前10个机会
+            for i, opp in enumerate(opportunities[:10], 1):
+                logger.info(f"\n{i}. {opp['repo_name']} - Issue #{opp['issue_number']}")
+                logger.info(f"   标题: {opp['issue_title']}")
+                logger.info(f"   综合评分: {opp['composite_score']}")
+                logger.info(f"   空投潜力: {opp['airdrop_potential']}")
+                logger.info(f"   推荐度: {opp['recommendation']}")
+        else:
+            logger.error(f"❌ 查找失败: {result.get('error')}")
+
+    finally:
+        await coordinator.stop()
