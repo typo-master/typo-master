@@ -86,6 +86,11 @@ class CoordinatorAgent(BaseAgent):
         self.pr_creator_agent: Optional[Any] = None
         self.report_generator_agent: Optional[Any] = None
 
+        # New Phase 2 & 3 agents
+        self.translator: Optional[Any] = None
+        self.issue_analyzer: Optional[Any] = None
+        self.contribution_evaluator: Optional[Any] = None
+
         # Compiled LangGraph workflows
         self.single_project_graph = None
         self.batch_projects_graph = None
@@ -118,6 +123,18 @@ class CoordinatorAgent(BaseAgent):
         await self.decision_agent.initialize()
         await self.pr_creator_agent.initialize()
         await self.report_generator_agent.initialize()
+
+        # Initialize new Phase 2 & 3 agents
+        from ..web3_typo_hunter.translator.document_translator import DocumentTranslator
+        from ..web3_typo_hunter.issue_finder.issue_analyzer import IssueAnalyzer
+        from ..web3_typo_hunter.issue_finder.contribution_evaluator import ContributionEvaluator
+
+        self.translator = DocumentTranslator(llm_client=self.llm_client)
+        self.issue_analyzer = IssueAnalyzer(
+            github_api=self.discovery_agent.github_api if self.discovery_agent else None,
+            llm_client=self.llm_client
+        )
+        self.contribution_evaluator = ContributionEvaluator(llm_client=self.llm_client)
 
         # Build graphs with checkpoint support
         self.single_project_graph = self._build_single_project_graph()
@@ -172,6 +189,13 @@ class CoordinatorAgent(BaseAgent):
             return await self.get_status()
         if task_type == "get_capabilities":
             return await self.get_capabilities()
+        # New Phase 2 & 3 task types
+        if task_type == "translate_document":
+            return await self._translate_document_task(task)
+        if task_type == "find_issues":
+            return await self._find_issues_task(task)
+        if task_type == "batch_find_contributions":
+            return await self._batch_find_contributions_task(task)
         logger.warning(f"Unknown task type: {task_type}")
         return {"success": False, "error": f"Unknown task type: {task_type}"}
 
@@ -191,6 +215,9 @@ class CoordinatorAgent(BaseAgent):
             "workflows": {
                 "single_project": True,
                 "batch_projects": True,
+                "document_translation": self.translator is not None,
+                "issue_discovery": self.issue_analyzer is not None,
+                "contribution_evaluation": self.contribution_evaluator is not None,
             },
             "pipeline_nodes": [
                 "scan_project",
@@ -209,6 +236,9 @@ class CoordinatorAgent(BaseAgent):
                 "pr_creation": True,
                 "report_generation": True,
                 "llm_decision_support": llm_enabled,
+                "document_translation": self.translator is not None,
+                "issue_discovery": self.issue_analyzer is not None,
+                "contribution_evaluation": self.contribution_evaluator is not None,
             },
             "llm": {
                 "enabled": llm_enabled,
@@ -917,3 +947,115 @@ class CoordinatorAgent(BaseAgent):
             await agent.stop()
         except Exception as exc:
             logger.warning(f"Failed to stop sub-agent cleanly: {exc}")
+
+    # =========================================================================
+    # Phase 2 & 3 New Task Handlers
+    # =========================================================================
+
+    async def _translate_document_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle document translation task."""
+        repo = task.get("repo")
+        target_lang = task.get("target_lang", "zh")
+
+        if not repo:
+            return {"success": False, "error": "repo is required"}
+
+        if not self.translator:
+            return {"success": False, "error": "Translator not initialized"}
+
+        try:
+            from ..web3_typo_hunter.utils.github_api import GitHubAPI
+            github_api = GitHubAPI(self.github_token)
+
+            result = await self.translator.translate_repo_readme(
+                repo_full_name=repo,
+                github_api=github_api,
+                target_lang=target_lang
+            )
+
+            return result
+        except Exception as exc:
+            logger.error(f"Error translating document: {exc}")
+            return {"success": False, "error": str(exc)}
+
+    async def _find_issues_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle find issues task."""
+        repo = task.get("repo")
+        limit = task.get("limit", 30)
+
+        if not repo:
+            return {"success": False, "error": "repo is required"}
+
+        if not self.issue_analyzer:
+            return {"success": False, "error": "Issue analyzer not initialized"}
+
+        try:
+            issues = await self.issue_analyzer.fetch_and_analyze_issues(
+                repo_full_name=repo,
+                limit=limit
+            )
+
+            return {
+                "success": True,
+                "repo": repo,
+                "issues": issues,
+                "count": len(issues)
+            }
+        except Exception as exc:
+            logger.error(f"Error finding issues: {exc}")
+            return {"success": False, "error": str(exc)}
+
+    async def _batch_find_contributions_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle batch find contributions task."""
+        repos = task.get("repos", [])
+        limit = task.get("limit", 10)
+
+        if not repos:
+            return {"success": False, "error": "repos list is required"}
+
+        opportunities = []
+
+        for repo in repos:
+            try:
+                # Get repo info
+                from ..web3_typo_hunter.utils.github_api import GitHubAPI
+                github_api = GitHubAPI(self.github_token)
+                repo_data = await github_api.get_repo(repo)
+
+                # Fetch and analyze issues
+                issues = await self.issue_analyzer.fetch_and_analyze_issues(
+                    repo_full_name=repo,
+                    limit=limit
+                )
+
+                # Evaluate each issue
+                for issue in issues:
+                    if issue.get("recommended"):
+                        opportunity = self.contribution_evaluator.evaluate_contribution_opportunity(
+                            repo_data=repo_data,
+                            issue=issue
+                        )
+                        opportunities.append(opportunity)
+
+            except Exception as exc:
+                logger.error(f"Error processing repo {repo}: {exc}")
+                continue
+
+        # Sort opportunities
+        ranked_opportunities = self.contribution_evaluator.rank_opportunities(opportunities)
+
+        return {
+            "success": True,
+            "opportunities": ranked_opportunities[:20],  # Return top 20
+            "total": len(ranked_opportunities)
+        }
+
+    # Helper methods for testing/mocking
+    def _get_translator(self):
+        return self.translator
+
+    def _get_issue_analyzer(self):
+        return self.issue_analyzer
+
+    def _get_contribution_evaluator(self):
+        return self.contribution_evaluator
