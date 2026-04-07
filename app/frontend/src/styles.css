@@ -715,17 +715,43 @@ body {
 }
 
 .workspace-side-menu {
-  background: #ffffff !important;
+  background: #fff;
   border-right: 1px solid #e5e7eb;
-  flex: 0 0 220px !important;
-  width: 220px !important;
-  min-width: 220px !important;
-  max-width: 220px !important;
+}
+
+.workspace-side-menu .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-sider-toggle {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  justify-content: flex-end;
+  padding: 0 16px;
+}
+
+.workspace-sider-toggle[data-collapsed="true"] {
+  justify-content: center;
+  padding: 0;
+}
+
+.workspace-sider-toggle-btn {
+  width: 32px;
+  height: 32px;
+  color: #6b7280;
+}
+
+.workspace-sider-toggle-btn[data-collapsed="true"] {
+  width: 48px;
 }
 
 .workspace-nav-menu {
-  height: 100%;
+  flex: 1;
   border-inline-end: none !important;
+  border-right: none;
   padding-top: 8px;
 }
 
@@ -736,10 +762,21 @@ body {
   line-height: 40px;
 }
 
+.workspace-nav-menu.ant-menu-vertical .ant-menu-item {
+  margin: 4px !important;
+  padding: 0 16px !important;
+}
+
 .workspace-nav-menu .ant-menu-item-selected {
   background: #dcfce7 !important;
   color: #166534 !important;
   font-weight: 600;
+}
+
+.workspace-side-menu.ant-layout-sider-collapsed
+  .workspace-nav-menu.ant-menu-vertical .ant-menu-item {
+  padding: 0 8px;
+  justify-content: center;
 }
 
 .workspace-main-content {
@@ -1367,6 +1404,28 @@ body {
 
 .session-delete-btn-flat:hover {
   background: #fee2e2 !important;
+}
+
+.session-compact-item {
+  width: 36px;
+  height: 36px;
+  margin: 6px auto;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.session-compact-item.is-active {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
 }
 
 /* AI Chat 卡片容器 - 扁平化 */

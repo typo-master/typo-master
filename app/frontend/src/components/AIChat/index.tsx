@@ -827,6 +827,11 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
     message.success("会话已删除");
   };
 
+  const getCompactLabel = (index: number) => {
+    const label = index + 1;
+    return label > 99 ? "99+" : String(label);
+  };
+
   return (
     <Card
       className="ai-chat-card"
@@ -885,6 +890,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
               size="small"
               icon={<ThunderboltOutlined />}
               onClick={newConversation}
+              data-testid="new-conversation-button"
               style={{ borderRadius: 8, width: 32, height: 32 }}
             />
           </Tooltip>
@@ -919,7 +925,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
         {/* 左侧：对话历史 - 扁平化风格 */}
         <div
           style={{
-            width: historyCollapsed ? 64 : 220,
+            width: historyCollapsed ? 56 : 220,
             borderRight: "1px solid #e5e7eb",
             paddingRight: historyCollapsed ? 0 : 16,
             display: "flex",
@@ -960,21 +966,35 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                 size="small"
                 icon={historyCollapsed ? <RightOutlined /> : <LeftOutlined />}
                 onClick={() => setHistoryCollapsed((prev) => !prev)}
+                data-testid="history-collapse-toggle"
                 style={{ width: 24, height: 24, borderRadius: 6, color: "#6b7280" }}
               />
             </Tooltip>
           </div>
 
-          {!historyCollapsed && (
-            <div style={{ flex: 1, overflow: "auto", padding: "0 4px" }}>
-              {sessions.length === 0 ? (
+          <div style={{ flex: 1, overflow: "auto", padding: historyCollapsed ? 0 : "0 4px" }}>
+            {sessions.length === 0 ? (
+              !historyCollapsed && (
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                   description="暂无历史会话"
                   style={{ marginTop: 24 }}
                 />
-              ) : (
-                sessions.map((session) => (
+              )
+            ) : (
+              sessions.map((session, index) =>
+                historyCollapsed ? (
+                  <Tooltip key={session.id} title={`${session.title}\n${session.lastMessage}`}>
+                    <button
+                      type="button"
+                      data-testid="history-compact-item"
+                      className={`session-compact-item ${session.id === conversationId ? "is-active" : ""}`}
+                      onClick={() => switchConversation(session.id)}
+                    >
+                      {getCompactLabel(index)}
+                    </button>
+                  </Tooltip>
+                ) : (
                   <div
                     key={session.id}
                     onClick={() => switchConversation(session.id)}
@@ -1035,10 +1055,10 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                       />
                     </Popconfirm>
                   </div>
-                ))
-              )}
-            </div>
-          )}
+                )
+              )
+            )}
+          </div>
         </div>
 
         {/* 中间：聊天区域 */}
@@ -1089,7 +1109,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                     style={{
                       width: 64,
                       height: 64,
-                      borderRadius: "50%",
+                      borderRadius: 8,
                       background: "#22c55e",
                       display: "flex",
                       alignItems: "center",
@@ -1143,7 +1163,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                         style={{
                           cursor: "pointer",
                           padding: 16,
-                          borderRadius: 10,
+                          borderRadius: 6,
                           background: "#ffffff",
                           border: "1px solid #e5e7eb",
                           boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
@@ -1224,7 +1244,8 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                     >
                       <Avatar
                         size="small"
-                        icon={msg.role === "user" ? <UserOutlined /> : <RobotOutlined />}
+                        icon={msg.role === "user" ? undefined : <RobotOutlined />}
+                        src={msg.role === "user" ? "/claude-code-logo.svg" : undefined}
                         style={{
                           background: msg.role === "user"
                             ? "#22c55e"
@@ -1237,7 +1258,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                           maxWidth: "85%",
                           minWidth: 120,
                           padding: "10px 14px",
-                          borderRadius: msg.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
+                          borderRadius: msg.role === "user" ? "8px 8px 2px 8px" : "8px 8px 8px 2px",
                           background: msg.role === "user"
                             ? "#22c55e"
                             : "#f3f4f6",
@@ -1306,20 +1327,20 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                     size="small"
                     icon={<RobotOutlined />}
                     style={{
-                      background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                      background: "linear-gradient(135deg, #3b82f6 0%, #22c55e 100%)",
                       flexShrink: 0,
-                      boxShadow: "0 0 12px rgba(99, 102, 241, 0.4)",
+                      boxShadow: "0 0 12px rgba(59, 130, 246, 0.3)",
                     }}
                   />
                   <div
                     style={{
                       maxWidth: "85%",
                       minWidth: 160,
-                      padding: "12px 16px",
-                      borderRadius: 16,
-                      background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
-                      border: "1px solid rgba(99, 102, 241, 0.3)",
-                      boxShadow: "0 4px 20px rgba(99, 102, 241, 0.2), inset 0 1px 0 rgba(255,255,255,0.05)",
+                      padding: "10px 14px",
+                      borderRadius: 8,
+                      background: "#f0f9ff",
+                      border: "1px solid #bae6fd",
+                      boxShadow: "0 2px 8px rgba(59, 130, 246, 0.1)",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1350,7 +1371,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                   right: 80,
                   marginBottom: 8,
                   background: "#ffffff",
-                  borderRadius: 10,
+                  borderRadius: 8,
                   boxShadow: "0 10px 25px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.05)",
                   border: "1px solid #e5e7eb",
                   maxHeight: 300,
@@ -1574,7 +1595,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                 style={{
                   flex: 1,
                   resize: "none",
-                  borderRadius: 10,
+                  borderRadius: 6,
                   border: "1px solid #d1d5db",
                   background: "#ffffff",
                   padding: "10px 14px",
@@ -1584,7 +1605,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                 }}
               />
               <Button
-                type="primary"
+                type="default"
                 icon={loading ? <LoadingOutlined /> : <SendOutlined />}
                 onClick={handleSend}
                 loading={loading}
@@ -1593,10 +1614,10 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
                   height: "auto",
                   minWidth: 56,
                   fontSize: 13,
-                  borderRadius: 10,
-                  background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                  border: "none",
-                  boxShadow: "0 4px 14px rgba(99, 102, 241, 0.4)",
+                  borderRadius: 6,
+                  background: "#ffffff",
+                  border: "1px solid #22c55e",
+                  color: "#22c55e",
                   transition: "all 0.2s ease",
                 }}
               >
@@ -1640,7 +1661,7 @@ ${!config.llm.enabled ? "\n⚠️ 请在设置页面配置大模型 API" : ""}`;
               gap: 6,
               padding: "8px 12px",
               background: "#f9fafb",
-              borderRadius: 6,
+              borderRadius: 4,
               border: "1px solid #e5e7eb",
             }}>
               <ToolOutlined style={{ fontSize: 14, color: "#6b7280" }} /> 技能

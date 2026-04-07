@@ -48,6 +48,8 @@ import {
   MessageOutlined,
   FireOutlined,
   CodeOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 import { useConfig } from "../config";
@@ -89,6 +91,7 @@ export default function WorkspacePage() {
     triggers: 0,
     tasks: 0,
   });
+  const [siderCollapsed, setSiderCollapsed] = useState(false);
 
   const canPoll = useMemo(() => {
     return Boolean(taskId && task && (task.status === "queued" || task.status === "running"));
@@ -247,6 +250,7 @@ export default function WorkspacePage() {
             )}
           </Space>
         ),
+        title: "任务执行",
       },
     ],
     [task]
@@ -326,9 +330,31 @@ export default function WorkspacePage() {
 
       {/* 主内容区 */}
       <Layout className="workspace-shell">
-        <Sider width={220} className="workspace-side-menu" theme="light">
+        <Sider
+          width={200}
+          collapsedWidth={56}
+          collapsible
+          collapsed={siderCollapsed}
+          onCollapse={setSiderCollapsed}
+          trigger={null}
+          className="workspace-side-menu"
+          theme="light"
+        >
+          <div
+            className="workspace-sider-toggle"
+            data-collapsed={siderCollapsed}
+          >
+            <Button
+              type="text"
+              icon={siderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setSiderCollapsed(!siderCollapsed)}
+              aria-label={siderCollapsed ? "展开侧边栏" : "收起侧边栏"}
+              className="workspace-sider-toggle-btn"
+              data-collapsed={siderCollapsed}
+            />
+          </div>
           <Menu
-            mode="inline"
+            mode={siderCollapsed ? "vertical" : "inline"}
             selectedKeys={[activeTab]}
             items={workspaceMenuItems}
             onClick={({ key }) => handleTabChange(key)}
@@ -537,6 +563,12 @@ export default function WorkspacePage() {
                         onClick={refreshTask}
                         disabled={!taskId}
                         icon={<ReloadOutlined />}
+                        style={{
+                          borderRadius: 6,
+                          border: "1px solid #d1d5db",
+                          background: "#f9fafb",
+                          color: "#374151",
+                        }}
                       >
                         刷新状态
                       </Button>
