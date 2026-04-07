@@ -114,8 +114,8 @@ class OpenAICompatibleResponsesClient:
             and self.config.model
         )
 
-    def _responses_url(self) -> str:
-        return f"{self.config.base_url.rstrip('/')}/v1/responses"
+    def _chat_completions_url(self) -> str:
+        return f"{self.config.base_url.rstrip('/')}/v1/chat/completions"
 
     def generate_text(
         self,
@@ -125,7 +125,7 @@ class OpenAICompatibleResponsesClient:
         max_output_tokens: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
-        Generate text from an OpenAI-compatible Responses endpoint.
+        Generate text from an OpenAI-compatible Chat Completions endpoint.
         """
         if not self.is_enabled:
             return {
@@ -135,27 +135,17 @@ class OpenAICompatibleResponsesClient:
 
         payload: Dict[str, Any] = {
             "model": self.config.model,
-            "input": [
+            "messages": [
                 {
                     "role": "system",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": system_prompt,
-                        }
-                    ],
+                    "content": system_prompt,
                 },
                 {
                     "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": user_prompt,
-                        }
-                    ],
+                    "content": user_prompt,
                 },
             ],
-            "max_output_tokens": max_output_tokens or self.config.max_output_tokens,
+            "max_tokens": max_output_tokens or self.config.max_output_tokens,
         }
 
         if temperature is not None:
@@ -163,7 +153,7 @@ class OpenAICompatibleResponsesClient:
 
         try:
             response = requests.post(
-                self._responses_url(),
+                self._chat_completions_url(),
                 headers={
                     "Authorization": f"Bearer {self.config.api_key}",
                     "Content-Type": "application/json",
@@ -179,12 +169,16 @@ class OpenAICompatibleResponsesClient:
                     "status_code": response.status_code,
                 }
 
+            # Force UTF-8 encoding for proper handling of non-ASCII characters
+            # Some APIs return text/event-stream without charset, causing
+            # requests to default to ISO-8859-1 which breaks Chinese characters
+            response.encoding = "utf-8"
             data = response.json()
             output_text = self.extract_output_text(data)
             if not output_text:
                 return {
                     "success": False,
-                    "error": "No text output found in responses payload",
+                    "error": "No text output found in response",
                     "raw": data,
                 }
 

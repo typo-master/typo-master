@@ -20,8 +20,11 @@ class TestDocumentTranslator:
 
     @pytest.fixture
     def translator(self, mock_llm_client):
-        """翻译器实例"""
-        return DocumentTranslator(llm_client=mock_llm_client)
+        """翻译器实例 - 使用临时缓存目录"""
+        translator = DocumentTranslator(llm_client=mock_llm_client)
+        # 使用内存缓存替代文件缓存
+        translator.cache._cache = {}
+        return translator
 
     def test_extract_markdown_sections(self, translator):
         """测试提取 Markdown 章节"""

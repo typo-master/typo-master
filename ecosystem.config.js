@@ -7,6 +7,9 @@ module.exports = {
       interpreter: '/Users/cc11001100/github/typo-master/typo-master/venv311/bin/python',
       env: {
         PYTHONUNBUFFERED: '1',
+        OPENAI_API_KEY: 'sk-p222FDus8nkNhXlu6FxnIeP9az4gbCppDUbYaRRDD8twuekj',
+        OPENAI_BASE_URL: 'https://mydamoxing.cn/v1',
+        OPENAI_MODEL: 'kimi-k2.5',
       },
       // 保活配置
       autorestart: true,

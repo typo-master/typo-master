@@ -128,10 +128,11 @@ class CoordinatorAgent(BaseAgent):
         from ..web3_typo_hunter.translator.document_translator import DocumentTranslator
         from ..web3_typo_hunter.issue_finder.issue_analyzer import IssueAnalyzer
         from ..web3_typo_hunter.issue_finder.contribution_evaluator import ContributionEvaluator
+        from ..web3_typo_hunter.utils.github_api import GitHubAPI
 
         self.translator = DocumentTranslator(llm_client=self.llm_client)
         self.issue_analyzer = IssueAnalyzer(
-            github_api=self.discovery_agent.github_api if self.discovery_agent else None,
+            github_api=GitHubAPI(self.github_token) if self.github_token else None,
             llm_client=self.llm_client
         )
         self.contribution_evaluator = ContributionEvaluator(llm_client=self.llm_client)
