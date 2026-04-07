@@ -216,3 +216,13 @@ app/frontend/.vite/
 
 # Agent memory (runtime data)
 agent_memory/
+
+# Translation cache
+.translation_cache/
+
+# Playwright test results
+test-results/
+playwright-report/
+
+# Root level node_modules (if any)
+/node_modules/
