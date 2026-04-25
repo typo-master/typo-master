@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
@@ -18,6 +18,15 @@ from app.backend.storage import (
     ConversationNotFoundError,
     MySQLStorage,
     WorkflowTaskNotFoundError,
+)
+
+from app.backend.auth import (
+    get_github_auth_url,
+    exchange_github_code,
+    get_github_user_info,
+    create_jwt_token,
+    get_current_user,
+    require_login,
 )
 
 # MCP SSE Server
@@ -174,6 +183,55 @@ app.add_middleware(
 _storage = MySQLStorage.from_env()
 _task_lock = asyncio.Lock()
 
+app.state.storage = _storage
+
+
+@app.get("/api/v1/auth/github/url")
+async def github_auth_url() -> Dict[str, Any]:
+    """Return GitHub OAuth authorization URL for frontend to redirect."""
+    state = str(uuid.uuid4())
+    url = get_github_auth_url(state)
+    return {"url": url, "state": state}
+
+
+@app.get("/api/v1/auth/github/callback")
+async def github_auth_callback(code: str, state: str = "") -> Dict[str, Any]:
+    """Handle GitHub OAuth callback: exchange code, create/get user, return JWT."""
+    access_token = await exchange_github_code(code)
+    github_info = await get_github_user_info(access_token)
+    now_iso = utc_now_iso()
+    user = await asyncio.to_thread(
+        _storage.get_or_create_user,
+        str(uuid.uuid4()),
+        github_info["github_id"],
+        github_info["username"],
+        github_info["display_name"],
+        github_info["avatar_url"],
+        github_info.get("email"),
+        github_info.get("bio"),
+        now_iso,
+    )
+    jwt_token = create_jwt_token(user["user_id"], user["username"])
+    return {
+        "success": True,
+        "token": jwt_token,
+        "user": user,
+    }
+
+
+@app.get("/api/v1/auth/me")
+async def get_me(current_user: Optional[Dict[str, Any]] = Depends(get_current_user)) -> Dict[str, Any]:
+    """Return current user info if logged in, or anonymous status."""
+    if current_user is None:
+        return {"authenticated": False, "user": None}
+    return {"authenticated": True, "user": current_user}
+
+
+@app.post("/api/v1/auth/logout")
+async def logout() -> Dict[str, Any]:
+    """Logout endpoint (client-side token removal)."""
+    return {"success": True, "message": "Logged out"}
+
 
 @app.on_event("startup")
 async def startup_event() -> None:
@@ -321,7 +379,11 @@ async def update_permissions(request: PermissionsUpdateRequest) -> Dict[str, Any
 
 
 @app.post("/api/v1/conversations", response_model=ConversationCreateResponse)
-async def create_conversation() -> ConversationCreateResponse:
+async def create_conversation(
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
+) -> ConversationCreateResponse:
+    if current_user is None:
+        raise HTTPException(status_code=401, detail="Login required to create conversations")
     conversation_id = str(uuid.uuid4())
     created_at = utc_now_iso()
     await asyncio.to_thread(_storage.create_conversation, conversation_id, created_at)
@@ -349,7 +411,11 @@ async def list_messages(conversation_id: str) -> Dict[str, Any]:
 async def send_message(
     conversation_id: str,
     request: ChatMessageRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
 ) -> ChatMessageResponse:
+    # 检查登录状态
+    if current_user is None:
+        raise HTTPException(status_code=401, detail="Login required to send messages")
     messages = await asyncio.to_thread(_storage.get_conversation_messages, conversation_id)
     if messages is None:
         raise HTTPException(status_code=404, detail="conversation not found")
