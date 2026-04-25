@@ -1,0 +1,49 @@
+.loginModal :global(.ant-modal-content) {
+  border-radius: 16px;
+  padding: 8px;
+}
+
+.loginContent {
+  text-align: center;
+  padding: 24px 16px 8px;
+}
+
+.loginIcon {
+  font-size: 48px;
+  color: #166534;
+  margin-bottom: 16px;
+}
+
+.loginTitle {
+  margin-bottom: 8px !important;
+  color: #111827 !important;
+}
+
+.loginReason {
+  margin-bottom: 4px !important;
+  color: #dc2626 !important;
+}
+
+.loginDesc {
+  margin-bottom: 24px !important;
+  font-size: 14px !important;
+}
+
+.githubButton {
+  height: 48px !important;
+  font-size: 16px !important;
+  border-radius: 10px !important;
+  background: #24292f !important;
+  border-color: #24292f !important;
+  margin-bottom: 16px !important;
+}
+
+.githubButton:hover {
+  background: #424a53 !important;
+  border-color: #424a53 !important;
+}
+
+.loginNote {
+  display: block;
+  font-size: 12px !important;
+}

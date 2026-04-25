@@ -1,4 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 import {
   Layout,
   Menu,
@@ -8,6 +9,7 @@ import {
   Button,
   Badge,
   Tooltip,
+  Dropdown,
 } from "antd";
 import {
   HomeOutlined,
@@ -18,8 +20,13 @@ import {
   GithubOutlined,
   ApiOutlined,
   BookOutlined,
+  LoginOutlined,
+  LogoutOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import { useConfig } from "./config";
+import { useAuth } from "./contexts/AuthContext";
+import LoginModal from "./components/LoginModal";
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
@@ -27,6 +34,8 @@ const { Title, Text } = Typography;
 export default function MainLayout() {
   const location = useLocation();
   const { config } = useConfig();
+  const { authenticated, user, logout } = useAuth();
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
   const isWorkspaceRoute = location.pathname.startsWith("/workspace");
   const selectedMenuKey = location.pathname.startsWith("/workspace")
     ? "/workspace"
@@ -35,6 +44,12 @@ export default function MainLayout() {
       : location.pathname.startsWith("/docs")
         ? "/docs"
         : "/";
+
+  useEffect(() => {
+    const handler = () => setLoginModalOpen(true);
+    window.addEventListener("auth:unauthorized", handler);
+    return () => window.removeEventListener("auth:unauthorized", handler);
+  }, []);
 
   const menuItems = [
     {
@@ -114,6 +129,51 @@ export default function MainLayout() {
                 <GithubOutlined />
               </a>
             </Tooltip>
+            {/* 用户区域 */}
+            {authenticated && user ? (
+              <Dropdown
+                menu={{
+                  items: [
+                    {
+                      key: "profile",
+                      icon: <UserOutlined />,
+                      label: user?.display_name || user?.username || "用户",
+                      disabled: true,
+                    },
+                    { type: "divider" as const },
+                    {
+                      key: "logout",
+                      icon: <LogoutOutlined />,
+                      label: "退出登录",
+                      danger: true,
+                    },
+                  ],
+                  onClick: ({ key }) => {
+                    if (key === "logout") {
+                      logout();
+                    }
+                  },
+                }}
+                placement="bottomRight"
+              >
+                <Avatar
+                  size={32}
+                  src={user.avatar_url}
+                  style={{ cursor: "pointer", border: "2px solid #86efac" }}
+                >
+                  {user.display_name?.[0] || user.username[0]}
+                </Avatar>
+              </Dropdown>
+            ) : (
+              <Button
+                type="text"
+                icon={<LoginOutlined />}
+                onClick={() => setLoginModalOpen(true)}
+                style={{ color: "#ecfdf5", fontSize: 14 }}
+              >
+                登录
+              </Button>
+            )}
           </Space>
         </div>
       </Header>
@@ -128,6 +188,10 @@ export default function MainLayout() {
           © 2024 Typo Master · Intelligent Code Quality Agent Platform
         </Text>
       </footer>
+      <LoginModal
+        open={loginModalOpen}
+        onClose={() => setLoginModalOpen(false)}
+      />
     </Layout>
   );
 }
