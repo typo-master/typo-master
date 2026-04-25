@@ -117,6 +117,24 @@ class MySQLStorage:
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
                     """
                 )
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS users (
+                      user_id VARCHAR(64) NOT NULL PRIMARY KEY,
+                      github_id BIGINT NOT NULL UNIQUE,
+                      username VARCHAR(128) NOT NULL,
+                      display_name VARCHAR(256) NOT NULL,
+                      avatar_url VARCHAR(512) NOT NULL DEFAULT '',
+                      email VARCHAR(256) NULL,
+                      bio TEXT NULL,
+                      created_at DATETIME(6) NOT NULL,
+                      last_login_at DATETIME(6) NOT NULL,
+                      is_active TINYINT(1) NOT NULL DEFAULT 1,
+                      INDEX idx_users_github_id (github_id),
+                      INDEX idx_users_username (username)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    """
+                )
             conn.commit()
         finally:
             conn.close()
@@ -292,6 +310,94 @@ class MySQLStorage:
                     "updated_at": self._mysql_datetime_to_iso(row["updated_at"]),
                     "result": self._load_json(row.get("result_json")),
                     "error": row.get("error_text"),
+                }
+        finally:
+            conn.close()
+
+    def get_or_create_user(
+        self,
+        user_id: str,
+        github_id: int,
+        username: str,
+        display_name: str,
+        avatar_url: str,
+        email: Optional[str],
+        bio: Optional[str],
+        now_iso: str,
+    ) -> dict:
+        """Get existing user by github_id, or create a new one."""
+        conn = self._connect()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT user_id, github_id, username, display_name, avatar_url, email, bio, created_at, last_login_at, is_active FROM users WHERE github_id = %s",
+                    (github_id,),
+                )
+                row = cursor.fetchone()
+                if row is not None:
+                    cursor.execute(
+                        "UPDATE users SET username=%s, display_name=%s, avatar_url=%s, email=%s, bio=%s, last_login_at=%s WHERE github_id=%s",
+                        (username, display_name, avatar_url, email, bio, self._iso_to_mysql_datetime(now_iso), github_id),
+                    )
+                    conn.commit()
+                    return {
+                        "user_id": str(row["user_id"]),
+                        "github_id": int(row["github_id"]),
+                        "username": username,
+                        "display_name": display_name,
+                        "avatar_url": avatar_url,
+                        "email": email,
+                        "bio": bio,
+                        "created_at": self._mysql_datetime_to_iso(row["created_at"]),
+                        "last_login_at": now_iso,
+                        "is_active": bool(row["is_active"]),
+                    }
+                cursor.execute(
+                    """
+                    INSERT INTO users (user_id, github_id, username, display_name, avatar_url, email, bio, created_at, last_login_at, is_active)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
+                    """,
+                    (user_id, github_id, username, display_name, avatar_url, email, bio, self._iso_to_mysql_datetime(now_iso), self._iso_to_mysql_datetime(now_iso)),
+                )
+                conn.commit()
+                return {
+                    "user_id": user_id,
+                    "github_id": github_id,
+                    "username": username,
+                    "display_name": display_name,
+                    "avatar_url": avatar_url,
+                    "email": email,
+                    "bio": bio,
+                    "created_at": now_iso,
+                    "last_login_at": now_iso,
+                    "is_active": True,
+                }
+        finally:
+            conn.close()
+
+    def get_user_by_id(self, user_id: str) -> Optional[dict]:
+        """Get user by user_id."""
+        conn = self._connect()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT user_id, github_id, username, display_name, avatar_url, email, bio, created_at, last_login_at, is_active FROM users WHERE user_id = %s",
+                    (user_id,),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    return None
+                return {
+                    "user_id": str(row["user_id"]),
+                    "github_id": int(row["github_id"]),
+                    "username": str(row["username"]),
+                    "display_name": str(row["display_name"]),
+                    "avatar_url": str(row["avatar_url"]),
+                    "email": row.get("email"),
+                    "bio": row.get("bio"),
+                    "created_at": self._mysql_datetime_to_iso(row["created_at"]),
+                    "last_login_at": self._mysql_datetime_to_iso(row["last_login_at"]),
+                    "is_active": bool(row["is_active"]),
                 }
         finally:
             conn.close()
