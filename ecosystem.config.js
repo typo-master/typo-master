@@ -26,6 +26,7 @@ module.exports = {
       listen_timeout: 10000,
 
       // 日志
+      max_size: '50M',
       log_file: '/Users/cc11001100/github/typo-master/typo-master/.pm2/logs/typomaster-backend.log',
       error_file: '/Users/cc11001100/github/typo-master/typo-master/.pm2/logs/typomaster-backend-error.log',
       out_file: '/Users/cc11001100/github/typo-master/typo-master/.pm2/logs/typomaster-backend-out.log',
@@ -55,6 +56,7 @@ module.exports = {
       listen_timeout: 10000,
 
       // 日志
+      max_size: '50M',
       log_file: '/Users/cc11001100/github/typo-master/typo-master/.pm2/logs/typomaster-frontend.log',
       error_file: '/Users/cc11001100/github/typo-master/typo-master/.pm2/logs/typomaster-frontend-error.log',
       out_file: '/Users/cc11001100/github/typo-master/typo-master/.pm2/logs/typomaster-frontend-out.log',

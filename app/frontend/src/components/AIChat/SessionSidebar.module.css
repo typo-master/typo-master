@@ -1,0 +1,113 @@
+.container {
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: width 0.2s ease;
+}
+
+.header {
+  margin-bottom: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.collapseBtn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: #6b7280;
+}
+
+.list {
+  flex: 1;
+  overflow: auto;
+}
+
+.sessionItem {
+  padding: 12px 14px;
+  cursor: pointer;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  transition: all 0.15s ease;
+}
+
+.sessionItem:hover {
+  background: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+}
+
+.sessionItem:hover .sessionDeleteBtn {
+  opacity: 1 !important;
+}
+
+.sessionItemActive {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.sessionContent {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.sessionTitle {
+  font-size: 13px;
+  display: block;
+}
+
+.sessionPreview {
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.sessionDeleteBtn {
+  padding: 4px 8px;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: all 0.15s ease;
+}
+
+.sessionDeleteBtn:hover {
+  background: #fee2e2 !important;
+}
+
+.compactItem {
+  width: 36px;
+  height: 36px;
+  margin: 6px auto;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.compactItemActive {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}

@@ -203,16 +203,29 @@ export default function WorkspacePage() {
 
   // 处理 Skill 执行
   const handleExecuteSkill = async (skillName: string, params: any) => {
-    message.info(`正在执行 Skill: ${skillName}...`);
-    // 实际执行逻辑应该在这里调用后端 API
-    console.log("Execute skill:", skillName, params);
+    try {
+      const { executeSkill: executeSkillApi } = await import("../api");
+      const result = await executeSkillApi(skillName, params ?? {});
+      if (result.success) {
+        message.success(`Skill "${skillName}" 执行成功`);
+      } else {
+        message.error(result.error || `Skill "${skillName}" 执行失败`);
+      }
+    } catch (error) {
+      message.error(`Skill 执行失败: ${String(error)}`);
+    }
   };
 
   // 处理触发器执行
-  const handleTriggerExecute = (triggerId: number, prompt: string) => {
-    message.info(`触发器 #${triggerId} 正在执行...`);
-    // 实际执行逻辑
-    console.log("Trigger execute:", triggerId, prompt);
+  const handleTriggerExecute = async (triggerId: number, prompt: string) => {
+    try {
+      const { createConversation, sendChatMessage } = await import("../api");
+      const conversation = await createConversation();
+      await sendChatMessage(conversation.conversation_id, prompt);
+      message.success(`触发器 #${triggerId} 执行完成`);
+    } catch (error) {
+      message.error(`触发器执行失败: ${String(error)}`);
+    }
   };
 
   const statusInfo = task ? statusConfig[task.status] : null;

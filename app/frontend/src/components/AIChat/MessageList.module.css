@@ -1,0 +1,67 @@
+.messageItem {
+  padding: 4px 0;
+}
+
+.bubble {
+  max-width: 85%;
+  min-width: 120px;
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+
+.bubbleUser {
+  background: #22c55e;
+  border: none;
+  border-radius: 8px 8px 2px 8px;
+}
+
+.bubbleAI {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px 8px 8px 2px;
+}
+
+.skillTags {
+  margin-bottom: 6px;
+}
+
+.skillTag {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: #dbeafe;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  border-radius: 4px;
+}
+
+.messageText {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.modeTag {
+  margin-top: 3px;
+  font-size: 10px;
+  padding: 0 4px;
+}
+
+.thinkingAvatar {
+  background: linear-gradient(135deg, #3b82f6 0%, #22c55e 100%);
+  flex-shrink: 0;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+}
+
+.thinkingBubble {
+  max-width: 85%;
+  min-width: 160px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
