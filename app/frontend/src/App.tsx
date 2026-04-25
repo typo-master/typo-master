@@ -6,6 +6,7 @@ import HomePage from "./pages/Home";
 import WorkspacePage from "./pages/Workspace";
 import SettingsPage from "./pages/Settings";
 import IntegrationDocsPage from "./pages/IntegrationDocs";
+import AuthCallbackPage from "./pages/AuthCallback";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
               <Route path="settings" element={<SettingsPage />} />
               <Route path="docs" element={<IntegrationDocsPage />} />
             </Route>
+            <Route path="/auth/callback" element={<AuthCallbackPage />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>
