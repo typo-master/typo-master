@@ -145,3 +145,27 @@ export interface MCPExecuteResponse {
   error?: string;
   result?: Record<string, unknown>;
 }
+
+export interface AuthUser {
+  user_id: string;
+  github_id: number;
+  username: string;
+  display_name: string;
+  avatar_url: string;
+  email: string | null;
+  bio: string | null;
+  created_at: string;
+  last_login_at: string;
+  is_active: boolean;
+}
+
+export interface AuthMeResponse {
+  authenticated: boolean;
+  user: AuthUser | null;
+}
+
+export interface GitHubCallbackResponse {
+  success: boolean;
+  token: string;
+  user: AuthUser;
+}

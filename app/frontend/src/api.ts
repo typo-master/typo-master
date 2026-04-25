@@ -17,13 +17,24 @@ import type {
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:50120";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = localStorage.getItem("typomaster_jwt");
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init?.headers as Record<string, string> ?? {})
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
   const response = await fetch(`${BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {})
-    },
+    headers,
     ...init
   });
+
+  if (response.status === 401) {
+    localStorage.removeItem("typomaster_jwt");
+    localStorage.removeItem("typomaster_user");
+    window.dispatchEvent(new CustomEvent("auth:unauthorized"));
+  }
 
   if (!response.ok) {
     const payload = await response.text();
