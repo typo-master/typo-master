@@ -7,9 +7,9 @@ module.exports = {
       interpreter: '/Users/cc11001100/github/typo-master/typo-master/venv311/bin/python',
       env: {
         PYTHONUNBUFFERED: '1',
-        OPENAI_API_KEY: 'sk-p222FDus8nkNhXlu6FxnIeP9az4gbCppDUbYaRRDD8twuekj',
-        OPENAI_BASE_URL: 'https://mydamoxing.cn/v1',
-        OPENAI_MODEL: 'kimi-k2.5',
+        OPENAI_API_KEY: 'ak_2mk8Hy6iF6mt4Hd3Ky2yn2ZT9Yo24',
+        OPENAI_BASE_URL: 'https://api.longcat.chat/openai',
+        OPENAI_MODEL: 'LongCat-Flash-Chat',
       },
       // 保活配置
       autorestart: true,
